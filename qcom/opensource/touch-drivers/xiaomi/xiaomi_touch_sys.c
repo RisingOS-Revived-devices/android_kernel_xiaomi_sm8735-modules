@@ -207,6 +207,11 @@ CREATE_ATTR(
 		if (sscanf(buf, "%d", &input) < 0 || input > 1)
 			return -EINVAL;
 
+		if (driver_get_touch_mode(TOUCH_ID,
+					  Touch_Fod_Longpress_Gesture) != input)
+			sysfs_notify(&xiaomi_touch_dev->kobj, NULL,
+				     "fod_longpress_gesture_enabled");
+
 		mode_arr[Touch_Fod_Longpress_Gesture] = input;
 		driver_update_touch_mode(TOUCH_ID, mode_arr,
 					 1L << Touch_Fod_Longpress_Gesture);
