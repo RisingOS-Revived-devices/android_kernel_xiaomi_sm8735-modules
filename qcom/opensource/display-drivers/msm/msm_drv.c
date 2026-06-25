@@ -61,6 +61,9 @@
 #include "sde_wb.h"
 #include "sde_dbg.h"
 
+#ifdef CONFIG_VIS_DISPLAY
+#include <vis_display/vis_display_ops.h>
+#endif
 /*
  * MSM driver version:
  * - 1.0.0 - initial interface

@@ -53,6 +53,14 @@
 #include "sde_vm.h"
 #include "sde_fence.h"
 #include "sde_aiqe_common.h"
+#ifdef MI_DISPLAY_MODIFY
+#include "mi_sde_encoder.h"
+#include "dsi_drm.h"
+#include "dsi_display.h"
+#include "mi_panel_id.h"
+#include "mi_dsi_display.h"
+#include "mi_disp_lhbm.h"
+#endif
 #include "dsi_display.h"
 
 #define SDE_DEBUG_ENC(e, fmt, ...) SDE_DEBUG("enc%d " fmt,\
@@ -2763,6 +2771,11 @@ static void _sde_encoder_rc_restart_delayed(struct sde_encoder_virt *sde_enc,
 	struct msm_drm_private *priv;
 	unsigned int lp, idle_pc_duration, vrr_min_idle_time = 0;
 	struct msm_drm_thread *disp_thread;
+#ifdef MI_DISPLAY_MODIFY
+	unsigned int frame_time_ms, fps;
+	unsigned int min_duration = IDLE_POWERCOLLAPSE_DURATION;
+	unsigned int max_duration = IDLE_POWERCOLLAPSE_IN_EARLY_WAKEUP;
+#endif
 
 	/* return early if called from esd thread */
 	if (sde_enc->delay_kickoff)
@@ -2775,10 +2788,23 @@ static void _sde_encoder_rc_restart_delayed(struct sde_encoder_virt *sde_enc,
 	else
 		lp = SDE_MODE_DPMS_ON;
 
+#ifdef MI_DISPLAY_MODIFY
+	fps = sde_enc->mode_info.frame_rate;
+
+	if (lp == SDE_MODE_DPMS_LP2)
+		idle_pc_duration = IDLE_SHORT_TIMEOUT;
+	else {
+		frame_time_ms = 1000;
+		do_div(frame_time_ms, fps);
+		idle_pc_duration = max(4 * frame_time_ms, min_duration);
+		idle_pc_duration = min(idle_pc_duration, max_duration);
+	}
+#else
 	if ((lp == SDE_MODE_DPMS_LP1) || (lp == SDE_MODE_DPMS_LP2))
 		idle_pc_duration = IDLE_SHORT_TIMEOUT;
 	else
 		idle_pc_duration = IDLE_POWERCOLLAPSE_DURATION;
+#endif
 
 	if (sde_enc->disp_info.vrr_caps.video_psr_support) {
 		vrr_min_idle_time = _sde_encoder_vrr_min_idle_time(sde_enc);
@@ -3134,6 +3160,11 @@ static int _sde_encoder_rc_early_wakeup(struct drm_encoder *drm_enc,
 {
 	bool autorefresh_enabled = false;
 	struct msm_drm_thread *disp_thread;
+#ifdef MI_DISPLAY_MODIFY
+	unsigned int frame_time_ms, fps, delay_ms;
+	unsigned int min_duration = IDLE_POWERCOLLAPSE_DURATION;
+	unsigned int max_duration = IDLE_POWERCOLLAPSE_IN_EARLY_WAKEUP;
+#endif
 	int ret = 0, idle_pc_duration = 0;
 
 	if (!sde_enc->crtc ||
@@ -3161,7 +3192,21 @@ static int _sde_encoder_rc_early_wakeup(struct drm_encoder *drm_enc,
 				"not handling early wakeup since auto refresh is enabled\n");
 			goto end;
 		}
+#ifdef MI_DISPLAY_MODIFY
+		fps = sde_enc->mode_info.frame_rate;
+		frame_time_ms = 1000;
+		do_div(frame_time_ms, fps);
+		delay_ms = max(4 * frame_time_ms, min_duration);
+		delay_ms = min(delay_ms, max_duration);
 
+		if (!sde_crtc_frame_pending(sde_enc->crtc)) {
+			kthread_mod_delayed_work(&disp_thread->worker,
+					&sde_enc->delayed_off_work,
+					msecs_to_jiffies(
+					delay_ms));
+			idle_pc_duration = delay_ms;
+		}
+#else
 		if (!sde_crtc_frame_pending(sde_enc->crtc)) {
 			kthread_mod_delayed_work(&disp_thread->worker,
 					&sde_enc->delayed_off_work,
@@ -3169,7 +3214,7 @@ static int _sde_encoder_rc_early_wakeup(struct drm_encoder *drm_enc,
 					IDLE_POWERCOLLAPSE_DURATION));
 			idle_pc_duration = IDLE_POWERCOLLAPSE_DURATION;
 		}
-
+#endif
 	} else if (sde_enc->rc_state == SDE_ENC_RC_STATE_IDLE) {
 		/* enable all the clks and resources */
 		ret = _sde_encoder_resource_control_helper(drm_enc,
@@ -3199,12 +3244,20 @@ static int _sde_encoder_rc_early_wakeup(struct drm_encoder *drm_enc,
 				IDLE_POWERCOLLAPSE_IN_EARLY_WAKEUP));
 		idle_pc_duration = IDLE_POWERCOLLAPSE_IN_EARLY_WAKEUP;
 
+#ifdef MI_DISPLAY_MODIFY
+		idle_pc_duration = IDLE_POWERCOLLAPSE_IN_EARLY_WAKEUP;
+#endif
 		sde_enc->rc_state = SDE_ENC_RC_STATE_ON;
 	}
+#ifdef MI_DISPLAY_MODIFY
+
+	SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
+			SDE_ENC_RC_STATE_ON, idle_pc_duration, SDE_EVTLOG_FUNC_CASE8);
+#else
 
 	SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state, SDE_ENC_RC_STATE_ON,
 			idle_pc_duration, SDE_EVTLOG_FUNC_CASE8);
-
+#endif
 end:
 	mutex_unlock(&sde_enc->rc_lock);
 	return ret;
@@ -4683,6 +4736,10 @@ static void sde_encoder_empulse_callback(struct drm_encoder *drm_enc,
 static void sde_encoder_underrun_callback(struct drm_encoder *drm_enc,
 		struct sde_encoder_phys *phy_enc)
 {
+#ifdef MI_DISPLAY_MODIFY
+	struct sde_connector *sde_conn = NULL;
+	struct dsi_display *display = NULL;
+#endif
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	if (!phy_enc)
 		return;
@@ -4690,6 +4747,14 @@ static void sde_encoder_underrun_callback(struct drm_encoder *drm_enc,
 	SDE_ATRACE_BEGIN("encoder_underrun_callback");
 	atomic_inc(&phy_enc->underrun_cnt);
 	SDE_EVT32(DRMID(drm_enc), atomic_read(&phy_enc->underrun_cnt), DPUID(drm_enc->dev));
+#ifdef MI_DISPLAY_MODIFY
+	SDE_ERROR("%s underrun count %d!\n", drm_enc ? drm_enc->name : "null",
+			atomic_read(&phy_enc->underrun_cnt));
+	sde_conn = to_sde_connector(phy_enc->connector);
+	if (sde_encoder_is_dsi_display(drm_enc)) {
+		display = (struct dsi_display *)sde_conn->display;
+	}
+#endif
 	if (sde_enc->cur_master &&
 			sde_enc->cur_master->ops.get_underrun_line_count)
 		sde_enc->cur_master->ops.get_underrun_line_count(
@@ -5852,8 +5917,14 @@ static void sde_encoder_input_event_work_handler(struct kthread_work *work)
 		return;
 	}
 
+#ifdef MI_DISPLAY_MODIFY
+        SDE_ATRACE_BEGIN("encoder_early_wakeup:input");
+#endif
 	sde_encoder_resource_control(&sde_enc->base,
 			SDE_ENC_RC_EVENT_EARLY_WAKEUP);
+#ifdef MI_DISPLAY_MODIFY
+        SDE_ATRACE_END("encoder_early_wakeup:input");
+#endif
 }
 
 static void sde_encoder_early_wakeup_work_handler(struct kthread_work *work)
@@ -5873,10 +5944,18 @@ static void sde_encoder_early_wakeup_work_handler(struct kthread_work *work)
 		return;
 	}
 
+#ifdef MI_DISPLAY_MODIFY
+	SDE_ATRACE_BEGIN("encoder_early_wakeup:hint");
+#else
 	SDE_ATRACE_BEGIN("encoder_early_wakeup");
+#endif
 	sde_encoder_resource_control(&sde_enc->base,
 			SDE_ENC_RC_EVENT_EARLY_WAKEUP);
+#ifdef MI_DISPLAY_MODIFY
+	SDE_ATRACE_END("encoder_early_wakeup:hint");
+#else
 	SDE_ATRACE_END("encoder_early_wakeup");
+#endif
 	sde_vm_unlock(sde_kms);
 }
 
@@ -6769,6 +6848,82 @@ void _sde_encoder_delay_kickoff_processing(struct sde_encoder_virt *sde_enc)
 		ktime_to_us(current_ts), ktime_to_us(ept_ts), timeout_us, SDE_EVTLOG_FUNC_CASE3);
 }
 
+#ifdef MI_DISPLAY_MODIFY
+static int mi_validate_mafr_panel(struct dsi_display *dsi_display)
+{
+	if (!dsi_display || !dsi_display->panel) {
+		return -1;
+	}
+	// enable debug need to skip
+	if (dsi_display->panel->mi_cfg.mafr_debug_switch)
+		return -1;
+
+	if (!(mi_get_panel_id_by_dsi_panel(dsi_display->panel) == O2_PANEL_PA &&
+		dsi_display->panel->id_config.build_id >= PANEL_P12) ||
+		(dsi_display->panel->power_mode == SDE_MODE_DPMS_LP1 ||
+		dsi_display->panel->power_mode == SDE_MODE_DPMS_LP2))
+		return -1;
+
+	return 0;
+}
+
+static int mi_update_mafr_status(struct dsi_display *dsi_display, bool mafr_enable_flag)
+{
+	if (!dsi_display || !dsi_display->panel) {
+		SDE_ERROR("Invalid input for updating MAFR status\n");
+		return -1;
+	}
+	struct mi_dsi_panel_cfg *mi_cfg;
+	mi_cfg = &dsi_display->panel->mi_cfg;
+	if (mafr_enable_flag != mi_cfg->mafr_enable_flag_ ||
+		((dsi_display->panel->cur_mode->dsi_mode_flags & DSI_MODE_FLAG_VRR) && mafr_enable_flag)) {
+		// save the mafr_enable_flag_
+		mi_cfg->last_mafr_enable_flag_ = mi_cfg->mafr_enable_flag_;
+		mi_cfg->mafr_enable_flag_ = mafr_enable_flag;
+
+		int ret = mi_dsi_panel_update_mafr_status(dsi_display->panel,
+									&mi_cfg->last_surface_view_roi);
+		if (ret) {
+			SDE_ERROR("Inval Param!");
+		}
+		SDE_INFO("mafr state change from %d -> %d. change mode flag = %d.\n",
+				mi_cfg->last_mafr_enable_flag_, mi_cfg->mafr_enable_flag_,
+				(dsi_display->panel->cur_mode->dsi_mode_flags & DSI_MODE_FLAG_VRR));
+	}
+
+	return mafr_enable_flag;
+}
+
+static bool mi_sde_encoder_is_mafr_enabled(struct drm_encoder *drm_enc)
+{
+	struct drm_bridge *bridge = drm_bridge_chain_get_first_bridge(drm_enc);
+	if (!bridge) {
+		// SDE_ERROR("Invalid input: param is NULL\n");
+		return false;
+	}
+
+	struct dsi_bridge *c_bridge = container_of(bridge, struct dsi_bridge, base);
+	if (!c_bridge || mi_validate_mafr_panel(c_bridge->display) != 0) {
+		// SDE_ERROR("Failed to get DSI bridge or display\n");
+		return false;
+	}
+
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
+	if (sde_enc->disp_info.intf_type != DRM_MODE_CONNECTOR_DSI || !sde_enc->cur_master) {
+		SDE_ERROR("Invalid interface type\n");
+		return false;
+	}
+
+	struct drm_connector *drm_conn = sde_enc->cur_master->connector;
+	if (!drm_conn || !drm_conn->state)
+		return false;
+
+	bool mafr_enable_flag = sde_connector_get_property(drm_conn->state,
+							CONNECTOR_PROP_MI_MAFR_INFO) ? true : false;
+	return mi_update_mafr_status(c_bridge->display, mafr_enable_flag);
+}
+#endif
+
 static void sde_encoder_set_flush_sync_mode(struct sde_encoder_virt *sde_enc)
 {
 	struct sde_crtc_state *cstate;
@@ -6883,12 +7038,62 @@ end:
 	return ret;
 }
 
+#ifdef MI_DISPLAY_MODIFY
+int sde_encoder_vid_wait_for_active(
+			struct drm_encoder *drm_enc)
+{
+	struct drm_display_mode mode;
+	struct sde_encoder_virt *sde_enc = NULL;
+	u32 ln_cnt, min_ln_cnt, active_mark_region;
+	u32 i, retry = 150;
+	struct sde_connector *sde_conn = NULL;
+	struct dsi_display *display = NULL;
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return -EINVAL;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+		if (sde_encoder_is_dsi_display(drm_enc)) {
+			sde_conn = to_sde_connector(phys->connector);
+			display = (struct dsi_display *)sde_conn->display;
+		}
+		if (!phys || (phys->ops.is_master && !phys->ops.is_master(phys)))
+			continue;
+
+		mode = phys->cached_mode;
+		min_ln_cnt = (mode.vtotal - mode.vsync_start) +
+			(mode.vsync_end - mode.vsync_start);
+
+		active_mark_region = mode.vdisplay + min_ln_cnt - mode.vdisplay / 4;
+
+		while (retry) {
+			ln_cnt = phys->ops.get_line_count(phys);
+			if ((ln_cnt > min_ln_cnt) && (ln_cnt < active_mark_region))
+				return 0;
+			udelay(200);
+			retry--;
+		}
+	}
+
+	return -EINVAL;
+}
+#endif
+
 void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool config_changed)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
 	struct sde_kms *sde_kms;
 	unsigned int i;
+#ifdef MI_DISPLAY_MODIFY
+	struct dsi_bridge *c_bridge = NULL;
+	struct dsi_display *dsi_display = NULL;
+	struct dsi_display_mode adj_mode;
+	struct drm_bridge *bridge;
+#endif
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -6899,6 +7104,16 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool config_changed)
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 
+#ifdef MI_DISPLAY_MODIFY
+	bridge = drm_bridge_chain_get_first_bridge(drm_enc);
+	if (sde_enc->disp_info.intf_type == DRM_MODE_CONNECTOR_DSI && bridge) {
+		c_bridge = container_of(bridge, struct dsi_bridge, base);
+		if (c_bridge) {
+			dsi_display = c_bridge->display;
+			adj_mode = c_bridge->dsi_mode;
+		}
+	}
+#endif
 	if (sde_enc->delay_kickoff) {
 		u32 loop_count = 20;
 		u32 sleep = DELAY_KICKOFF_POLL_TIMEOUT_US / loop_count;
@@ -6921,6 +7136,18 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool config_changed)
 	if (sde_enc->cur_master)
 		_sde_encoder_update_retire_txq(sde_enc->cur_master, sde_kms);
 
+#ifdef MI_DISPLAY_MODIFY
+	if (dsi_display && dsi_display->panel &&
+		sde_enc->disp_info.intf_type == DRM_MODE_CONNECTOR_DSI &&
+		adj_mode.dsi_mode_flags & DSI_MODE_FLAG_VRR) {
+
+		if(mi_get_panel_id_by_dsi_panel(dsi_display->panel) == O10U_PANEL_PA ||
+		   mi_get_panel_id_by_dsi_panel(dsi_display->panel) == O10U_PANEL_PB) {
+			mutex_lock(&dsi_display->panel->panel_lock);
+			sde_encoder_vid_wait_for_active(drm_enc);
+		}
+	}
+#endif
 	/* delay frame kickoff based on expected present time */
 	_sde_encoder_delay_kickoff_processing(sde_enc);
 
@@ -6938,7 +7165,32 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool config_changed)
 			!_sde_encoder_is_autorefresh_enabled(sde_enc))
 		_sde_encoder_update_rsc_client(drm_enc, true);
 
+#ifdef MI_DISPLAY_MODIFY
+	if (dsi_display && dsi_display->panel &&
+		sde_enc->disp_info.intf_type == DRM_MODE_CONNECTOR_DSI &&
+		adj_mode.dsi_mode_flags & DSI_MODE_FLAG_VRR) {
+		if(mi_get_panel_id_by_dsi_panel(dsi_display->panel) == O10U_PANEL_PA ||
+		   mi_get_panel_id_by_dsi_panel(dsi_display->panel) == O10U_PANEL_PB) {
+			dsi_panel_video_mode_pre_aod_locked(dsi_display->panel);
+			dsi_panel_gamma_switch_locked(dsi_display->panel);
+			dsi_panel_video_mode_post_aod_locked(dsi_display->panel);
+			mutex_unlock(&dsi_display->panel->panel_lock);
+
+			/* Normal state, allow lhbm tx */
+			if (mi_disp_lhbm_fod_enabled(dsi_display->panel) &&
+				adj_mode.timing.refresh_rate != 30 &&
+				is_aod_and_panel_initialized(dsi_display->panel)) {
+				mi_disp_lhbm_fod_allow_tx_lhbm(dsi_display, true);
+			}
+		}
+	}
+#endif
 	SDE_ATRACE_END("encoder_kickoff");
+#ifdef MI_DISPLAY_MODIFY
+	// mafr config function
+	if (sde_encoder_is_built_in_display(drm_enc))
+		mi_sde_encoder_is_mafr_enabled(drm_enc);
+#endif
 }
 
 void sde_encoder_helper_get_pp_line_count(struct drm_encoder *drm_enc,
@@ -8820,8 +9072,12 @@ void sde_encoder_misr_sign_event_notify(struct drm_encoder *drm_enc)
 		return;
 	}
 
-	if (!sde_enc->cur_master)
+#ifdef MI_DISPLAY_MODIFY
+	if (!sde_enc->cur_master) {
+		SDE_ERROR("invalid cur_master parameter\n");
 		return;
+	}
+#endif
 	connector = sde_enc->cur_master->connector;
 	if (!connector)
 		return;

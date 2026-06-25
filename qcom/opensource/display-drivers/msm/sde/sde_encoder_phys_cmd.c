@@ -10,6 +10,9 @@
 #include "sde_core_irq.h"
 #include "sde_formats.h"
 #include "sde_trace.h"
+#ifdef MI_DISPLAY_MODIFY
+#include "mi_sde_encoder.h"
+#endif
 #include "sde_cesta.h"
 
 #define SDE_DEBUG_CMDENC(e, fmt, ...) SDE_DEBUG("enc%d intf%d " fmt, \
@@ -470,9 +473,19 @@ static void _sde_encoder_phys_signal_frame_done(struct sde_encoder_phys *phys_en
 static void sde_encoder_phys_cmd_ctl_done_irq(void *arg, int irq_idx)
 {
 	struct sde_encoder_phys *phys_enc = arg;
+#ifdef MI_DISPLAY_MODIFY
+	int crtc_id = 0;
+	struct drm_crtc *crtc = NULL;
+#endif
 
 	if (!phys_enc)
 		return;
+#ifdef MI_DISPLAY_MODIFY
+	if(phys_enc->parent)
+		crtc = phys_enc->parent->crtc;
+	if(crtc)
+		crtc_id = crtc->base.id;
+#endif
 
 	SDE_ATRACE_BEGIN("ctl_done_irq");
 
@@ -533,10 +546,21 @@ static void sde_encoder_phys_cmd_te_rd_ptr_irq(void *arg, int irq_idx)
 	struct sde_cesta_client *cesta_client;
 	unsigned long lock_flags;
 	u32 fence_ready = 0;
+#ifdef MI_DISPLAY_MODIFY
+	int crtc_id = 0;
+	struct drm_crtc *crtc = NULL;
+#endif
 
 	if (!phys_enc || !phys_enc->parent || !phys_enc->hw_pp || !phys_enc->hw_intf
 		|| !phys_enc->hw_ctl)
 		return;
+#ifdef MI_DISPLAY_MODIFY
+	if(phys_enc->parent)
+		crtc = phys_enc->parent->crtc;
+	if(crtc)
+		crtc_id = crtc->base.id;
+	mi_sde_encoder_save_vsync_info(phys_enc);
+#endif
 
 	SDE_ATRACE_BEGIN("rd_ptr_irq");
 	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
@@ -585,9 +609,19 @@ static void sde_encoder_phys_cmd_wr_ptr_irq(void *arg, int irq_idx)
 	struct sde_hw_ctl *ctl;
 	u32 event = 0, qsync_mode = 0;
 	struct sde_hw_pp_vsync_info info[MAX_CHANNELS_PER_ENC] = {{0}};
+#ifdef MI_DISPLAY_MODIFY
+	int crtc_id = 0;
+	struct drm_crtc *crtc = NULL;
+#endif
 
 	if (!phys_enc || !phys_enc->hw_ctl)
 		return;
+#ifdef MI_DISPLAY_MODIFY
+	if(phys_enc->parent)
+		crtc = phys_enc->parent->crtc;
+	if(crtc)
+		crtc_id = crtc->base.id;
+#endif
 
 	SDE_ATRACE_BEGIN("wr_ptr_irq");
 	ctl = phys_enc->hw_ctl;
