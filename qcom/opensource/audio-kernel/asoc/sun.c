@@ -97,6 +97,7 @@ static const char *smartpa_cust_name[SMARTPA_MAX] = {
 	[SMARTPA_NONE] = "none",
 	[SMARTPA_FS19XX] = "fs19xx",
 	[SMARTPA_SIA91XX] = "sia91xx",
+	[SMARTPA_AW882XX] = "aw882xx",
 };
 
 static const char *tdm_rx_dailink_name[] = {
