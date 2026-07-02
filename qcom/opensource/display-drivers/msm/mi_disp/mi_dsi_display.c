@@ -306,7 +306,7 @@ static ssize_t mi_dsi_display_set_dsi_porch_rw_real(void *display,
 			&dsi_ctrl->host_config.common_config, 0x0,
 			&dsi_ctrl->roi);
 	} else {
-		dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw, host_mode);
+		dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw, &dsi_ctrl->host_config);
 	}
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 
