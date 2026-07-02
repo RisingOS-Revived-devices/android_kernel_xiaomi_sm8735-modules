@@ -94,5 +94,59 @@ else
 include $(DLKM_DIR)/Build_external_kernelmodule.mk
 endif
 
+# MIUI ADD: Camera_CameraSkyNet
+include $(CLEAR_VARS)
+# For incremental compilation support.
+LOCAL_SRC_FILES             :=  \
+                                $(shell find $(LOCAL_PATH)/config -L -type f)      \
+                                $(shell find $(LOCAL_PATH)/drivers -L -type f)     \
+                                $(shell find $(LOCAL_PATH)/dt-bindings -L -type f) \
+                                $(shell find $(LOCAL_PATH)/include -L -type f)     \
+                                $(LOCAL_PATH)/Android.mk \
+                                $(LOCAL_PATH)/board.mk   \
+                                $(LOCAL_PATH)/product.mk \
+                                $(LOCAL_PATH)/Kbuild
+LOCAL_MODULE_PATH           := $(KERNEL_MODULES_OUT)
+LOCAL_MODULE                := cameralog.ko
+LOCAL_MODULE_TAGS           := optional
+include $(DLKM_DIR)/Build_external_kernelmodule.mk
+# END Camera_CameraSkyNet
+
+# MIUI ADD: Camera_CameraOpt
+include $(CLEAR_VARS)
+# For incremental compilation support.
+LOCAL_SRC_FILES             :=  \
+                                $(shell find $(LOCAL_PATH)/config -L -type f)      \
+                                $(shell find $(LOCAL_PATH)/drivers -L -type f)     \
+                                $(shell find $(LOCAL_PATH)/dt-bindings -L -type f) \
+                                $(shell find $(LOCAL_PATH)/include -L -type f)     \
+                                $(LOCAL_PATH)/Android.mk \
+                                $(LOCAL_PATH)/board.mk   \
+                                $(LOCAL_PATH)/product.mk \
+                                $(LOCAL_PATH)/Kbuild
+LOCAL_MODULE_PATH           := $(KERNEL_MODULES_OUT)
+LOCAL_MODULE                := cameramsger.ko
+LOCAL_MODULE_TAGS           := optional
+include $(DLKM_DIR)/Build_external_kernelmodule.mk
+# END Camera_CameraOpt
+
+# MIUI ADD: Camera_CamSched
+include $(CLEAR_VARS)
+# For incremental compilation support.
+LOCAL_SRC_FILES             :=  \
+                                $(shell find $(LOCAL_PATH)/config -L -type f)      \
+                                $(shell find $(LOCAL_PATH)/drivers -L -type f)     \
+                                $(shell find $(LOCAL_PATH)/dt-bindings -L -type f) \
+                                $(shell find $(LOCAL_PATH)/include -L -type f)     \
+                                $(LOCAL_PATH)/Android.mk \
+                                $(LOCAL_PATH)/board.mk   \
+                                $(LOCAL_PATH)/product.mk \
+                                $(LOCAL_PATH)/Kbuild
+LOCAL_MODULE_PATH           := $(KERNEL_MODULES_OUT)
+LOCAL_MODULE                := mi_cam.ko
+LOCAL_MODULE_TAGS           := optional
+include $(DLKM_DIR)/Build_external_kernelmodule.mk
+# END Camera_CamSched
+
 endif # End of check for board platform
 endif # ifeq ($(CAMERA_DLKM_ENABLED),true)

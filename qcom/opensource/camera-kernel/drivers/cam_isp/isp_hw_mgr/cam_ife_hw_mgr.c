@@ -29,6 +29,9 @@
 #include "cam_mem_mgr_api.h"
 #include "cam_common_util.h"
 #include "cam_presil_hw_access.h"
+// XIAOMI ADD: enableForceFullRecoveryForCRC
+#include "cam_csiphy_xm_data.h"
+// END: enableForceFullRecoveryForCRC
 
 #define CAM_IFE_SAFE_DISABLE 0
 #define CAM_IFE_SAFE_ENABLE 1
@@ -85,6 +88,10 @@ static uint32_t blob_type_hw_cmd_map[CAM_ISP_GENERIC_BLOB_TYPE_MAX] = {
 	CAM_ISP_HW_CMD_BLANKING_UPDATE,
 	CAM_ISP_HW_CMD_WM_CONFIG_UPDATE_V2,
 };
+
+// XIAOMI ADD: enableForceFullRecoveryForCRC
+extern struct cam_csiphy_xm_data_t cam_csiphy_xm_data;
+// END: enableForceFullRecoveryForCRC
 
 static struct cam_ife_hw_mgr g_ife_hw_mgr;
 static uint32_t g_num_ife_available, g_num_ife_lite_available, g_num_sfe_available;
@@ -557,6 +564,13 @@ static int cam_isp_mgr_drv_config(struct cam_ife_hw_mgr_ctx         *ctx,
 	drv_info->update_drv = update_drv;
 	drv_info->drv_en = drv_en;
 	drv_info->timeout_val = timeout_val;
+
+	if (force_disable_drv) {
+		update_drv = true;
+		drv_en = false;
+		CAM_DBG(CAM_ISP, "req_id:%llu force to disable drv, ctx:%d",
+			request_id, ctx->ctx_index);
+	}
 
 	if (force_disable_drv) {
 		update_drv = true;
@@ -16432,6 +16446,17 @@ static int cam_ife_hw_mgr_handle_csid_error(
 		recovery_data.error_type = err_type;
 		recoverable = false;
 	}
+
+	// XIAOMI ADD: enableForceFullRecoveryForCRC
+	if ((cam_csiphy_xm_data.crc_force_full_recovery ==
+		XM_CSIPHY_CRC_FORCE_FULL_RECOVERY_ENABLE) &&
+		(cam_csiphy_xm_data.crc_occurred)) {
+			CAM_ERR(CAM_ISP, "force to trigger crc full recovery, error %d", err_type);
+			recovery_data.error_type = err_type;
+			recoverable = false;
+			cam_csiphy_xm_data.crc_occurred = 0;
+	}
+	// END: enableForceFullRecoveryForCRC
 
 	if (recoverable && (is_bus_overflow ||
 		(err_type & CAM_ISP_RECOVERABLE_CSID_ERRORS))) {
