@@ -47,6 +47,9 @@
 #define AW_READ_CHIPID_RETRY_DELAY 5 /* 5 ms */
 
 extern int set_smartpa_type(const char *name, unsigned int size);
+extern bool check_smartpa_type(const char *name);
+extern int get_smartpa_type(void);
+extern void set_smartpa_codec(struct device *dev, const char *dai_name);
 
 static unsigned int g_aw882xx_dev_cnt;
 static unsigned int g_print_dbg;
@@ -2112,6 +2115,8 @@ static int aw_componet_codec_register(struct aw882xx *aw882xx)
 			    dev_name(aw882xx->dev));
 	}
 
+	set_smartpa_codec(aw882xx->dev, dai_drv[0].name);
+
 	return 0;
 }
 /*****************************************************
@@ -2924,6 +2929,12 @@ static int aw882xx_i2c_probe(struct i2c_client *i2c,
 #endif
 
 	aw_pr_info("enter addr=0x%x", i2c->addr);
+
+	if (!check_smartpa_type("aw882xx")) {
+		aw_dev_info(&i2c->dev, "smartpa type %d already probed, abort",
+			    get_smartpa_type());
+		return -ENODEV;
+	}
 
 	if (!i2c_check_functionality(i2c->adapter, I2C_FUNC_I2C)) {
 		aw_dev_err(&i2c->dev, "check_functionality failed");
