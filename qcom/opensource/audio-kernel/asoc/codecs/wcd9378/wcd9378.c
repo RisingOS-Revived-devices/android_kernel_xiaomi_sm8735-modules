@@ -67,6 +67,7 @@
 #define MICB_NUM_MAX     3
 
 #define NUM_ATTEMPTS 20
+extern const u32 wcd9378_reg_array[];
 
 #define WCD9378_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000 |\

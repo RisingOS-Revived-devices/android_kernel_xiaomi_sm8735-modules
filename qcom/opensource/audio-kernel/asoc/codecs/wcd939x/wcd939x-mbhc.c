@@ -2334,11 +2334,12 @@ int wcd939x_mbhc_init(struct wcd939x_mbhc **mbhc,
 	}
 
 	(*mbhc) = wcd939x_mbhc;
+/*
 	snd_soc_add_component_controls(component, impedance_detect_controls,
 				   ARRAY_SIZE(impedance_detect_controls));
 	snd_soc_add_component_controls(component, hph_type_detect_controls,
 				   ARRAY_SIZE(hph_type_detect_controls));
-
+*/
 	wcd939x = dev_get_drvdata(component->dev);
 	if (!wcd939x) {
 		dev_err(component->dev, "%s: wcd939x pointer is NULL\n", __func__);
