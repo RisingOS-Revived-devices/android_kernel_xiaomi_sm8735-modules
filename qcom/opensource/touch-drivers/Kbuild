@@ -112,6 +112,19 @@ ifeq ($(TARGET_KERNEL_DLKM_DISABLE), true)
 	endif
 endif
 
+ifeq ($(CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE), y)
+	xiaomi_touch-y := \
+		 ./xiaomi/xiaomi_touch_core.o \
+		 ./xiaomi/xiaomi_touch_knock_data.o \
+		 ./xiaomi/xiaomi_touch_proc.o \
+		 ./xiaomi/xiaomi_touch_operations.o \
+		 ./xiaomi/xiaomi_touch_sys.o \
+		 ./xiaomi/xiaomi_touch_mode.o \
+		 ./xiaomi/xiaomi_touch_evdev.o \
+		 ./xiaomi/xiaomi_touch_device.o
+	obj-$(CONFIG_MSM_TOUCH) += xiaomi_touch.o
+endif
+
 ifeq ($(CONFIG_QTS_ENABLE), y)
 	LINUX_INC += -include $(TOUCH_ROOT)/qts/qts_core.h
 	LINUX_INC += -include $(TOUCH_ROOT)/qts/qts_core_common.h
