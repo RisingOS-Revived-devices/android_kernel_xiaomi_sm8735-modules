@@ -653,7 +653,9 @@ static void xiaomi_touch_resume_work(struct work_struct *work)
 	s8 touch_id = xiaomi_touch_data->touch_id;
 	xiaomi_touch_driver_param_t *xiaomi_touch_driver_param =
 		get_xiaomi_touch_driver_param(touch_id);
+#ifndef TOUCH_THP_SUPPORT
 	int value = 0;
+#endif
 
 	LOG_INFO("touch id %d enter", touch_id);
 	if (!xiaomi_touch_data || !xiaomi_touch_driver_param)
