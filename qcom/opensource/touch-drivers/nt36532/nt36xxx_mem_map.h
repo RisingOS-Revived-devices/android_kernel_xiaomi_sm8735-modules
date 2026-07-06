@@ -142,7 +142,7 @@ static const struct nvt_ts_hw_reg_addr_info hw_reg_addr_info_old_w_isp = {
 static const struct nvt_ts_hw_reg_addr_info hw_reg_addr_info_nt38771 = {
 	.chip_ver_trim_addr = 0x3F004,
 	.swrst_sif_addr = 0x3F0FE,
-	.bld_spe_pups_addr = 0x3F135,
+	.bld_spe_pups_addr = 0x3F12A,
 };
 
 static const struct nvt_ts_hw_reg_addr_info hw_reg_addr_info_legacy_w_isp = {
@@ -800,7 +800,7 @@ static const struct nvt_ts_mem_map NT36676F_memory_map = {
 };
 
 static const struct nvt_ts_mem_map NT38771_memory_map = {
-	.EVENT_BUF_ADDR = 0x2B400,
+	.EVENT_BUF_ADDR = 0x31400,
 	.RAW_PIPE0_ADDR = 0x2EEC8,
 	.RAW_PIPE1_ADDR = 0x2EEC8,
 	.BASELINE_ADDR = 0x304A8,
@@ -827,6 +827,9 @@ static const struct nvt_ts_mem_map NT38771_memory_map = {
 	.DMA_CRC_EN_ADDR = 0x3F10F,
 	.BLD_ILM_DLM_CRC_ADDR = 0x3F127,
 	.DMA_CRC_FLAG_ADDR = 0x3F129,
+#if TOUCH_THP_SUPPORT
+	.XM_HTC_POLL_INFO_ADDR = 0x25B40,
+#endif
 };
 
 static struct nvt_ts_hw_info NT38771_hw_info = {

@@ -1115,14 +1115,14 @@ void nvt_stop_crc_reboot(void)
 			msleep(1);
 
 			//---clear CRC_ERR_FLAG---
-			nvt_set_page(I2C_BLDR_Address, 0x3F135);
+			nvt_set_page(I2C_BLDR_Address, 0x3f12a);
 
 			buf[0] = 0x35;
 			buf[1] = 0xA5;
 			CTP_I2C_WRITE(ts->client, I2C_BLDR_Address, buf, 2);
 
 			//---check CRC_ERR_FLAG---
-			nvt_set_page(I2C_BLDR_Address, 0x3F135);
+			nvt_set_page(I2C_BLDR_Address, 0x3f12a);
 
 			buf[0] = 0x35;
 			buf[1] = 0x00;
