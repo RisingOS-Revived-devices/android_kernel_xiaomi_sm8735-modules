@@ -10,6 +10,8 @@ ifeq ($(TARGET_SUPPORT),genericarmv8)
 	KBUILD_OPTIONS += CONFIG_ARCH_PINEAPPLE=y
 endif
 
+KBUILD_OPTIONS += KBUILD_EXTRA_SYMBOLS=$(M)/../display-drivers/msm/Module.symvers
+
 all:
 	$(MAKE) -C $(KERNEL_SRC) M=$(M) modules $(KBUILD_OPTIONS)
 
