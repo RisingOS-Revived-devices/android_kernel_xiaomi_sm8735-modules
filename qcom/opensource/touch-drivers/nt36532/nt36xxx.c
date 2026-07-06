@@ -3273,8 +3273,8 @@ static void nvt_ts_prase_data_func(void *data)
 }
 #endif //NVT_PARSE_DATA_ENABLE
 
-#define XM_HTC_DEFAULT_FINGER_PACKET_LEN 0x04C3
-#define XM_HTC_DEFAULT_STYLUS_PACKET_LEN 0x050D
+#define XM_HTC_DEFAULT_FINGER_PACKET_LEN 0x01FB
+#define XM_HTC_DEFAULT_STYLUS_PACKET_LEN 0x0509
 
 static irqreturn_t nvt_ts_work_func_irq_handler(int irq, void *data)
 {
