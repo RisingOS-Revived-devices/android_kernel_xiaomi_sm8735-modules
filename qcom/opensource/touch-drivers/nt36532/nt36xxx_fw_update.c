@@ -987,6 +987,13 @@ download_fail:
 request_firmware_fail:
 #if TOUCH_THP_SUPPORT
 	ts->xm_htc_sw_reset = false;
+	if (ret == 0 && ts->enable_touch_raw) {
+		extern int32_t nvt_xm_htc_set_op_mode(int16_t op_mode);
+		extern int32_t nvt_set_extend_custom_cmd(uint8_t sub_cmd,
+							 int16_t value);
+		nvt_xm_htc_set_op_mode(2);
+		nvt_set_extend_custom_cmd(0x0A, 120);
+	}
 #endif
 	return ret;
 }
