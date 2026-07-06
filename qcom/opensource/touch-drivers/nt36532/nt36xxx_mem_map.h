@@ -139,6 +139,12 @@ static const struct nvt_ts_hw_reg_addr_info hw_reg_addr_info_old_w_isp = {
 	.bld_spe_pups_addr = 0x3F135,
 };
 
+static const struct nvt_ts_hw_reg_addr_info hw_reg_addr_info_nt38771 = {
+	.chip_ver_trim_addr = 0x3F004,
+	.swrst_sif_addr = 0x3F0FE,
+	.bld_spe_pups_addr = 0x3F135,
+};
+
 static const struct nvt_ts_hw_reg_addr_info hw_reg_addr_info_legacy_w_isp = {
 	.chip_ver_trim_addr = 0x1F64E,
 	.swrst_sif_addr = 0x1F01A,
@@ -793,6 +799,44 @@ static const struct nvt_ts_mem_map NT36676F_memory_map = {
 	.R_ILM_CHECKSUM_ADDR = 0x1BF00,
 };
 
+static const struct nvt_ts_mem_map NT38771_memory_map = {
+	.EVENT_BUF_ADDR = 0x2B400,
+	.RAW_PIPE0_ADDR = 0x2EEC8,
+	.RAW_PIPE1_ADDR = 0x2EEC8,
+	.BASELINE_ADDR = 0x304A8,
+	.DIFF_PIPE0_ADDR = 0x2F828,
+	.DIFF_PIPE1_ADDR = 0x2FE68,
+	.ENB_CASC_REG = { .addr = 0, .mask = 0 },
+	/* FW History */
+	.MMAP_HISTORY_EVENT0 = 0x2B5C0,
+	.MMAP_HISTORY_EVENT1 = 0x2B600,
+	/* Phase 2 Host Download */
+	.BOOT_RDY_ADDR = 0x3F102,
+	.ACI_ERR_CLR_ADDR = 0x3F705,
+	/* BLD CRC */
+	.BLD_LENGTH_ADDR = 0x3F10C,
+	.ILM_LENGTH_ADDR = 0x3F7B8,
+	.DLM_LENGTH_ADDR = 0x3FB88,
+	.BLD_DES_ADDR = 0x3F108,
+	.ILM_DES_ADDR = 0x3F7B4,
+	.DLM_DES_ADDR = 0x3FB84,
+	.G_ILM_CHECKSUM_ADDR = 0x3F7BC,
+	.G_DLM_CHECKSUM_ADDR = 0x3FB8C,
+	.R_ILM_CHECKSUM_ADDR = 0x3FBBC,
+	.R_DLM_CHECKSUM_ADDR = 0x3FBC0,
+	.DMA_CRC_EN_ADDR = 0x3F10F,
+	.BLD_ILM_DLM_CRC_ADDR = 0x3F127,
+	.DMA_CRC_FLAG_ADDR = 0x3F129,
+};
+
+static struct nvt_ts_hw_info NT38771_hw_info = {
+	.hw_crc = HWCRC_LEN_3Bytes,
+	.auto_copy = CHECK_SPI_DMA_TX_INFO,
+	.bld_multi_header = BLDMHEADER_PH2FLASH_HEADER_ONE,
+	.use_gcm = 1,
+	.hw_regs = &hw_reg_addr_info_nt38771,
+};
+
 static struct nvt_ts_hw_info NT36536_hw_info = {
 	.hw_crc = HWCRC_LEN_3Bytes,
 	.auto_copy = CHECK_TX_AUTO_COPY_EN,
@@ -890,6 +934,14 @@ struct nvt_ts_trim_id_table {
 
 static const struct nvt_ts_trim_id_table trim_id_table[] = {
 	/* tddi */
+	{ .id = { 0xFF, 0xFF, 0xFF, 0x72, 0x87, 0x03 },
+	  .mask = { 0, 0, 0, 1, 1, 1 },
+	  .mmap = &NT38771_memory_map,
+	  .hwinfo = &NT38771_hw_info },
+	{ .id = { 0xFF, 0xFF, 0xFF, 0x71, 0x87, 0x03 },
+	  .mask = { 0, 0, 0, 1, 1, 1 },
+	  .mmap = &NT38771_memory_map,
+	  .hwinfo = &NT38771_hw_info },
 	{ .id = { 0x14, 0xFF, 0xFF, 0x23, 0x65, 0x03 },
 	  .mask = { 1, 0, 0, 1, 1, 1 },
 	  .mmap = &NT36536_single_memory_map,
