@@ -922,13 +922,13 @@ int32_t nvt_update_firmware(char *firmware_name)
 		if (!ts->lcd_id_value) {
 			firmware_name = BOOT_UPDATE_FIRMWARE_NAME_CSOT;
 		} else {
-			firmware_name = BOOT_UPDATE_FIRMWARE_NAME_BOE;
+			firmware_name = BOOT_UPDATE_FIRMWARE_NAME_TM;
 		}
 	} else if (0 == strcmp(firmware_name, MP_UPDATE_FIRMWARE_NAME)) {
 		if (!ts->lcd_id_value) {
 			firmware_name = MP_UPDATE_FIRMWARE_NAME_CSOT;
 		} else {
-			firmware_name = MP_UPDATE_FIRMWARE_NAME_BOE;
+			firmware_name = MP_UPDATE_FIRMWARE_NAME_TM;
 		}
 	}
 

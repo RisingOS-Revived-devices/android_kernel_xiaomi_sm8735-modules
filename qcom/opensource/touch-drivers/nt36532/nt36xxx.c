@@ -2264,13 +2264,23 @@ static int32_t nvt_parse_dt(struct device *dev)
 	ts->pen_support = of_property_read_bool(np, "novatek,pen-support");
 	NVT_LOG("novatek,pen-support=%d\n", ts->pen_support);
 
-	ts->lcd_id_gpio = of_get_named_gpio(np, "novatek,lcd_id-gpio", 0);
-	NVT_LOG("novatek,lcd_id-gpio=%d\n", ts->lcd_id_gpio);
+	ts->lcd_id_gpio = of_get_named_gpio(np, "novatek,lcd_id-gpio1", 0);
+	ts->lcd_id_gpio2 = of_get_named_gpio(np, "novatek,lcd_id-gpio2", 0);
+	NVT_LOG("novatek,lcd_id-gpio1=%d, lcd_id-gpio2=%d\n", ts->lcd_id_gpio,
+		ts->lcd_id_gpio2);
 	gpio_direction_input(ts->lcd_id_gpio);
-	/* read id pin value, 0 is CSOT, 1 is BOE */
-	ts->lcd_id_value = gpio_get_value(ts->lcd_id_gpio);
-	NVT_LOG("lcd_id_value = %d, this panel is %s", ts->lcd_id_value,
-		ts->lcd_id_value ? "BOE" : "CSOT");
+	gpio_direction_input(ts->lcd_id_gpio2);
+	{
+		int lcd_id_value1 = gpio_get_value(ts->lcd_id_gpio);
+		int lcd_id_value2 = gpio_get_value(ts->lcd_id_gpio2);
+		if (lcd_id_value1 == 0 && lcd_id_value2 == 1)
+			ts->lcd_id_value = 1;
+		else
+			ts->lcd_id_value = 0;
+		NVT_LOG("lcd_id_value1 = %d, lcd_id_value2 = %d this panel is %s\n",
+			lcd_id_value1, lcd_id_value2,
+			ts->lcd_id_value ? "TM" : "CSOT");
+	}
 
 	ret = of_property_read_u32(np, "novatek,spi-rd-fast-addr",
 				   &SPI_RD_FAST_ADDR);
@@ -5531,8 +5541,8 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 		       strlen(BOOT_UPDATE_CONFIG_NAME_CSOT));
 	} else {
 		memcpy(hardware_param.config_file_name,
-		       BOOT_UPDATE_CONFIG_NAME_BOE,
-		       strlen(BOOT_UPDATE_CONFIG_NAME_BOE));
+		       BOOT_UPDATE_CONFIG_NAME_TM,
+		       strlen(BOOT_UPDATE_CONFIG_NAME_TM));
 	}
 
 	memset(hardware_param.driver_version, 0, 64);

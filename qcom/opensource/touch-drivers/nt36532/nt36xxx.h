@@ -183,16 +183,16 @@ extern const uint16_t gesture_key_array[];
 #endif
 #define BOOT_UPDATE_FIRMWARE 1
 #define BOOT_UPDATE_FIRMWARE_NAME "novatek_ts_fw.bin"
-#define BOOT_UPDATE_FIRMWARE_NAME_CSOT "novatek_nt36532_piano_fw_csot.bin"
-#define BOOT_UPDATE_FIRMWARE_NAME_BOE "novatek_nt36532_piano_fw_boe.bin"
+#define BOOT_UPDATE_FIRMWARE_NAME_CSOT "o10u/novatek_nt38771_o10u_fw_csot.bin"
+#define BOOT_UPDATE_FIRMWARE_NAME_TM "o10u/novatek_nt38771_o10u_fw_tm.bin"
 #define MP_UPDATE_FIRMWARE_NAME "novatek_ts_mp.bin"
-#define MP_UPDATE_FIRMWARE_NAME_CSOT "novatek_nt36532_piano_mp_csot.bin"
-#define MP_UPDATE_FIRMWARE_NAME_BOE "novatek_nt36532_piano_mp_boe.bin"
+#define MP_UPDATE_FIRMWARE_NAME_CSOT "o10u/novatek_nt38771_o10u_mp_csot.bin"
+#define MP_UPDATE_FIRMWARE_NAME_TM "o10u/novatek_nt38771_o10u_mp_tm.bin"
 #define NVT36532_DRIVER_VERSION "nvt_version_2025.08.28-001"
 
 //thp start 6.8
-#define BOOT_UPDATE_CONFIG_NAME_CSOT "piano_nova_csot_thp_config.ini"
-#define BOOT_UPDATE_CONFIG_NAME_BOE "piano_nova_boe_thp_config.ini"
+#define BOOT_UPDATE_CONFIG_NAME_CSOT "o10u_nova_csot_thp_config.ini"
+#define BOOT_UPDATE_CONFIG_NAME_TM "o10u_nova_tm_thp_config.ini"
 //thp end 6.8
 
 #define TOUCH_ID 0
@@ -373,6 +373,7 @@ struct nvt_ts_data {
 	bool fw_debug;
 #endif
 	int32_t lcd_id_gpio;
+	int32_t lcd_id_gpio2;
 	int32_t lcd_id_value;
 	int32_t irq_gpio;
 	int32_t reset_gpio;
