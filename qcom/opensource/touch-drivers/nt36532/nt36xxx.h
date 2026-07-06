@@ -85,9 +85,6 @@
 #define NVTTOUCH_RST_PIN 980
 #define NVTTOUCH_INT_PIN 943
 
-//Current pen
-#define PEN_M80P 1
-#define PEN_P81C 2
 
 //---INT trigger mode---
 //#define IRQ_TYPE_EDGE_RISING 1
@@ -142,13 +139,9 @@
 
 //---Input device info.---
 #define NVT_TS_NAME "NVTCapacitiveTouchScreen"
-#define NVT_M80P_PEN_NAME "NVTCapacitivePenM80p"
-#define NVT_P81C_PEN_NAME "NVTCapacitivePenP81c"
 //---Touch info.---2772*1280
 #define TOUCH_MAX_WIDTH 1280
 #define TOUCH_MAX_HEIGHT 2772
-#define PEN_MAX_WIDTH 1280
-#define PEN_MAX_HEIGHT 2772
 #define TOUCH_RX_NUM 18
 #define TOUCH_TX_NUM 39
 #define TOUCH_MAX_FINGER_NUM 10
@@ -162,11 +155,6 @@ extern const uint16_t touch_key_array[TOUCH_KEY_NUM];
 //thp end 6.8
 
 //---for Pen---
-#define PEN_M80P_PRESSURE_MAX (8191)
-#define PEN_P81C_PRESSURE_MAX (16383)
-#define PEN_DISTANCE_MAX (1)
-#define PEN_TILT_MIN (-60)
-#define PEN_TILT_MAX (60)
 
 /* Enable only when module have tp reset pin and connected to host */
 #define NVT_TOUCH_SUPPORT_HW_RST 0
@@ -205,7 +193,6 @@ extern const uint16_t gesture_key_array[];
 #define NVT_TOUCH_ESD_CHECK_PERIOD 1500 /* ms */
 #define NVT_TOUCH_WDT_RECOVERY 1
 
-#define CHECK_PEN_DATA_CHECKSUM 0
 
 #if BOOT_UPDATE_FIRMWARE
 #define SIZE_4KB 4096
@@ -216,45 +203,12 @@ extern const uint16_t gesture_key_array[];
 #define NVT_FLASH_END_FLAG_ADDR (fw_need_write_size - NVT_FLASH_END_FLAG_LEN)
 #endif
 
-/* MIPP Start */
-#define MIPP_PEN_VOLTAGE 0x32
-#define MIPP_PEN_FREQUENCY 0x31
-#define MIPP_PEN_AG 0x34
-#define MIPP_PEN_REPORT 0x35
-#define MIPP_PEN_TIME_OFFSET 9
-#define MIPP_PEN_TIME_LENGTH 6
-#define MIPP_PEN_DATA_LENGTH 15
-#define MIPP_MAX_BUFFER_LENGTH 8
-#define MIPP_MAX_UEVENT_LENGTH 30
-#define MIPP_PEN_HOPPING_OFFSET 20
-#define MIPP_BOTH_HOPPING_OFFSET 10
 
 #ifndef TOUCH_THP_SUPPORT
-struct nvt_pen_press {
-	long long time_stamp;
-	unsigned int pressure;
-};
 
-struct nvt_pen_press_buff {
-	int head;
-	struct nvt_pen_press buff[MIPP_MAX_BUFFER_LENGTH];
-};
 
-struct nvt_pen_device {
-	dev_t basedev;
-	struct cdev cdev;
-	struct class class;
-	struct device *dev;
-};
 
-struct nvt_pen_pdata {
-	uint8_t id_table[4];
-	spinlock_t spinlock;
-	struct nvt_pen_device *dev;
-	struct nvt_pen_press_buff *buff;
-};
 #endif
-/* MIPP End */
 
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
 enum nvt_ic_state {
@@ -266,11 +220,6 @@ enum nvt_ic_state {
 };
 #endif /* CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE */
 
-typedef enum {
-	SUPPORT_M80P = 0x01,
-	SUPPORT_N83P = 0x02,
-	SUPPORT_P81C = 0x03,
-} STYLUS_SUPPORT_TYPE;
 
 /*
  * struct ts_rawdata_info
@@ -331,6 +280,7 @@ struct nvt_ts_data {
 	/* power supply end*/
 	/* Mmi tp selftest */
 	int result_type;
+	bool pen_support; /* selftest-only; runtime pen driver removed */
 	/* Mmi tp selftest end */
 	/* gamemode setup */
 	bool gamemode_enable;
@@ -340,17 +290,8 @@ struct nvt_ts_data {
 	//struct workqueue_struct *set_touchfeature_wq;
 	// struct work_struct set_touchfeature_work;
 	/* gamemode setup end */
-	/* pen_connect_strategy setup */
-	struct work_struct pen_charge_state_change_work;
-	struct notifier_block pen_charge_state_notifier;
 	bool need_send_hopping_ack;
-	bool pen_bluetooth_connect;
-	bool pen_charge_connect;
 	struct device *dev;
-	int pen_count;
-	bool pen_shield_flag;
-	struct mutex pen_switch_lock;
-	/* pen_connect_strategy setup end */
 	/* gesture mode setup */
 	int ic_state;
 	int gesture_command;
@@ -387,15 +328,9 @@ struct nvt_ts_data {
 	uint8_t *xbuf;
 	struct mutex xbuf_lock;
 	bool irq_enabled;
-	bool pen_support;
 	bool is_cascade;
 	uint8_t x_gang_num;
 	uint8_t y_gang_num;
-	struct input_dev *pen_input_dev_m80p;
-	struct input_dev *pen_input_dev_p81c;
-	uint8_t cur_pen;
-	int8_t pen_phys[32];
-	int8_t pen_p81c_phys[32];
 	uint32_t chip_ver_trim_addr;
 	uint32_t swrst_sif_addr;
 	uint32_t bld_spe_pups_addr;
@@ -415,7 +350,6 @@ struct nvt_ts_data {
 	bool xm_htc_report_coordinate;
 	uint8_t *eventbuf_debug;
 #else
-	struct nvt_pen_pdata *pen_pdata;
 #endif /*TOUCH_THP_SUPPORT*/
 	bool enable_touch_raw;
 	bool xm_htc_polled;
@@ -425,10 +359,8 @@ struct nvt_ts_data {
 	//struct work_struct update_raw_work;
 	//thp end 6.8
 	bool doze_test;
-	int pen_static_status;
 	bool nvt_tool_in_use;
 	uint32_t limit_version;
-	uint8_t pen_switch; // 0x01: M80P, 0x02: N83P, 0x03: P81C
 };
 
 #if NVT_TOUCH_PROC
@@ -488,9 +420,6 @@ enum THP_IC_MODE__COMMADN_TYPE {
 };
 //thp end 6.8
 
-/* Extended mode definitions */
-#define DATA_MODE_176 20038
-#define DATA_MODE_177 20039
 
 typedef enum {
 	RESET_STATE_INIT = 0xA0, // IC reset
@@ -561,8 +490,6 @@ int32_t nvt_write_addr(uint32_t addr, uint8_t data);
 extern void nvt_esd_check_enable(uint8_t enable);
 #endif /* #if NVT_TOUCH_ESD_PROTECT */
 
-int update_pen_status(bool enforce_send_cmd);
-int32_t nvt_xm_htc_set_stylus_pressure(int16_t stylus_pressure);
 int nvt_ic_self_test_short(void);
 int nvt_ic_self_test_open(void);
 void nvt_fw_reload_recovery(void);
@@ -571,11 +498,8 @@ void nvt_fw_reload_recovery(void);
 #if TOUCH_THP_SUPPORT
 int32_t nvt_get_xm_htc_poll_info(void);
 int32_t nvt_xm_htc_set_idle_wake_th(int16_t idle_wake_th);
-int32_t nvt_xm_htc_set_stylus_enable(int16_t stylus_enable);
 int32_t nvt_xm_htc_set_gesture_switch(int16_t gesture_switch);
 int32_t nvt_xm_htc_set_idle_high_base_en(int16_t idle_high_base_en);
-int32_t nvt_set_pen_switch(uint8_t pen_switch);
-int32_t nvt_set_active_pen_stationary(uint8_t pen_stationary);
 int32_t nvt_load_mp_setting_criteria_from_csv(void);
 #endif /* #if TOUCH_THP_SUPPORT */
 //thp end 6.8

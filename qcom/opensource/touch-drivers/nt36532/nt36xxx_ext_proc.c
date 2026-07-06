@@ -26,8 +26,6 @@
 #define NVT_BASELINE "nvt_baseline"
 #define NVT_RAW "nvt_raw"
 #define NVT_DIFF "nvt_diff"
-#define NVT_PEN_SWITCH "nvt_pen_switch"
-#define NVT_ACTIVE_PEN_STATIONARY "nvt_active_pen_stationary"
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
 #define NVT_XIAOMI_LOCKDOWN_INFO "tp_lockdown_info"
 #endif /* #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE */
@@ -37,8 +35,6 @@
 #define NVT_EVENTBUF_DEBUG "nvt_eventbuf_debug"
 #define XM_HTC_OP_MODE "xm_htc_op_mode"
 #define XM_HTC_IDLE_WAKE_TH "xm_htc_idle_wake_th"
-#define XM_HTC_STYLUS_ENABLE "xm_htc_stylus_enable"
-#define XM_HTC_STYLUS_ONLY "xm_htc_stylus_only"
 #define XM_HTC_RAW_DATA_TYPE "xm_htc_raw_data_type"
 #define XM_HTC_GESTURE_SWITCH "xm_htc_gesture_switch"
 #define XM_HTC_SW_RESET "xm_htc_sw_reset"
@@ -46,7 +42,6 @@
 #define XM_HTC_SCAN_FREQ_NO "xm_htc_scan_freq_no"
 #define XM_HTC_SCAN_FREQ "xm_htc_scan_freq"
 #define XM_HTC_HAND_SCAN_RATE "xm_htc_hand_scan_rate"
-#define XM_HTC_PEN_SCAN_RATE "xm_htc_pen_scan_rate"
 #define XM_HTC_CALIBRATION "xm_htc_calibration"
 #define XM_HTC_INT_STATE "xm_htc_int_state"
 #define XM_HTC_SINGLE_STEP "xm_htc_single_step"
@@ -60,7 +55,6 @@
 #define XM_HTC_IDLE_BASELINE_UPDATE "xm_htc_idle_baseline_update"
 #define XM_HTC_CLICK_GESTURE_ENABLE "xm_htc_click_gesture_enable"
 #define XM_HTC_IDLE_HIGH_BASE_EN "xm_htc_idle_high_base_en"
-#define XM_HTC_STYLUS_PRESSURE "xm_htc_stylus_pressure"
 #endif /* #if TOUCH_THP_SUPPORT */
 //thp end 6.9
 
@@ -77,8 +71,6 @@ static struct proc_dir_entry *NVT_proc_fw_version_entry;
 static struct proc_dir_entry *NVT_proc_baseline_entry;
 static struct proc_dir_entry *NVT_proc_raw_entry;
 static struct proc_dir_entry *NVT_proc_diff_entry;
-static struct proc_dir_entry *NVT_proc_pen_switch_entry;
-static struct proc_dir_entry *NVT_proc_active_pen_stationary_entry;
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
 extern ssize_t mi_dsi_panel_lockdown_info_read(unsigned char *plockdowninfo);
 #endif /* #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE */
@@ -88,8 +80,6 @@ extern ssize_t mi_dsi_panel_lockdown_info_read(unsigned char *plockdowninfo);
 static struct proc_dir_entry *NVT_proc_eventbuf_debug_entry;
 static struct proc_dir_entry *XM_HTC_proc_op_mode_entry;
 static struct proc_dir_entry *XM_HTC_proc_idle_wake_th_entry;
-static struct proc_dir_entry *XM_HTC_proc_stylus_enable_entry;
-static struct proc_dir_entry *XM_HTC_proc_stylus_only_entry;
 static struct proc_dir_entry *XM_HTC_proc_raw_data_type_entry;
 static struct proc_dir_entry *XM_HTC_proc_gesture_switch_entry;
 static struct proc_dir_entry *XM_HTC_proc_sw_reset_entry;
@@ -97,7 +87,6 @@ static struct proc_dir_entry *XM_HTC_proc_fh_enable_entry;
 static struct proc_dir_entry *XM_HTC_proc_scan_freq_no_entry;
 static struct proc_dir_entry *XM_HTC_proc_scan_freq_entry;
 static struct proc_dir_entry *XM_HTC_proc_hand_scan_rate_entry;
-static struct proc_dir_entry *XM_HTC_proc_pen_scan_rate_entry;
 static struct proc_dir_entry *XM_HTC_proc_calibration_entry;
 static struct proc_dir_entry *XM_HTC_proc_int_state_entry;
 static struct proc_dir_entry *XM_HTC_proc_single_step_entry;
@@ -111,7 +100,6 @@ static struct proc_dir_entry *XM_HTC_proc_report_coordinate_entry;
 static struct proc_dir_entry *XM_HTC_proc_idle_baseline_update_entry;
 static struct proc_dir_entry *XM_HTC_proc_click_gesture_enable_entry;
 static struct proc_dir_entry *XM_HTC_proc_idle_high_base_en_entry;
-static struct proc_dir_entry *XM_HTC_proc_stylus_pressure_entry;
 #endif /* #if TOUCH_THP_SUPPORT */
 //thp end 6.9
 
@@ -718,269 +706,6 @@ static const struct file_operations nvt_diff_fops = {
 };
 #endif
 
-int32_t nvt_set_pen_switch(uint8_t pen_switch)
-{
-	uint8_t buf[8] = { 0 };
-	int32_t ret = 0;
-	int32_t i = 0;
-	int32_t retry = 10;
-
-	if (ts->xm_htc_sw_reset) {
-		NVT_ERR("ts->xm_htc_sw_reset=%d\n", ts->xm_htc_sw_reset);
-		return -EBUSY;
-	}
-
-	if (ts->nvt_tool_in_use) {
-		NVT_ERR("NVT tool in use.\n");
-		return -EBUSY;
-	}
-
-	NVT_LOG("++\n");
-	NVT_LOG("pen_switch: %d\n", pen_switch);
-
-	//---set xdata index to EVENT BUF ADDR---
-	ret = nvt_set_page(ts->mmap->EVENT_BUF_ADDR | EVENT_MAP_HOST_CMD);
-	if (ret < 0) {
-		NVT_ERR("Set event buffer index fail!\n");
-		goto out;
-	}
-
-	for (i = 0; i < retry; i++) {
-		if (buf[1] != 0x7B) {
-			buf[0] = EVENT_MAP_HOST_CMD;
-			buf[1] = 0x7B;
-			buf[2] = pen_switch;
-			ret = CTP_SPI_WRITE(ts->client, buf, 3);
-			if (ret < 0) {
-				NVT_ERR("Write command fail!\n");
-				goto out;
-			}
-		}
-
-		usleep_range(10000, 11000);
-
-		buf[0] = EVENT_MAP_HOST_CMD;
-		buf[1] = 0xFF;
-		CTP_SPI_READ(ts->client, buf, 2);
-		if (buf[1] == 0x00)
-			break;
-	}
-
-	if (unlikely(i >= retry)) {
-		NVT_ERR("send cmd failed, buf[1] = 0x%02X\n", buf[1]);
-		ret = -1;
-	} else {
-		NVT_LOG("send cmd success, tried %d times\n", i);
-		ret = 0;
-		ts->pen_switch = pen_switch;
-	}
-
-out:
-	NVT_LOG("--\n");
-	return ret;
-}
-
-static ssize_t nvt_pen_switch_proc_write(struct file *filp,
-					 const char __user *buf, size_t count,
-					 loff_t *f_pos)
-{
-	int32_t ret;
-	int32_t tmp;
-	uint8_t pen_switch;
-	char *tmp_buf = NULL;
-
-	NVT_LOG("++\n");
-
-	if (count == 0 || count > 2) {
-		NVT_ERR("Invalid value!, count = %zu\n", count);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	tmp_buf = kzalloc(count + 1, GFP_KERNEL);
-	if (!tmp_buf) {
-		NVT_ERR("Allocate tmp_buf fail!\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-	if (copy_from_user(tmp_buf, buf, count)) {
-		NVT_ERR("copy_from_user() error!\n");
-		ret = -EFAULT;
-		goto out;
-	}
-
-	ret = sscanf(tmp_buf, "%d", &tmp);
-	if (ret != 1) {
-		NVT_ERR("Invalid value!, ret = %d\n", ret);
-		ret = -EINVAL;
-		goto out;
-	}
-	pen_switch = (uint8_t)tmp;
-	NVT_LOG("pen_switch = %d\n", pen_switch);
-
-	if (mutex_lock_interruptible(&ts->lock)) {
-		ret = -ERESTARTSYS;
-		goto out;
-	}
-
-#if NVT_TOUCH_ESD_PROTECT
-	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
-
-	nvt_set_pen_switch(pen_switch);
-
-	mutex_unlock(&ts->lock);
-
-	ret = count;
-out:
-	if (tmp_buf)
-		kfree(tmp_buf);
-	NVT_LOG("--\n");
-	return ret;
-}
-
-#ifdef HAVE_PROC_OPS
-static const struct proc_ops nvt_pen_switch_fops = {
-	.proc_write = nvt_pen_switch_proc_write,
-};
-#else
-static const struct file_operations nvt_pen_switch_fops = {
-	.owner = THIS_MODULE,
-	.write = nvt_pen_switch_proc_write,
-};
-#endif
-
-int32_t nvt_set_active_pen_stationary(uint8_t pen_stationary)
-{
-	uint8_t buf[8] = { 0 };
-	int32_t ret = 0;
-	int32_t i = 0;
-	int32_t retry = 10;
-
-	if (ts->xm_htc_sw_reset) {
-		NVT_ERR("ts->xm_htc_sw_reset=%d\n", ts->xm_htc_sw_reset);
-		return -EBUSY;
-	}
-
-	if (ts->nvt_tool_in_use) {
-		NVT_ERR("NVT tool in use.\n");
-		return -EBUSY;
-	}
-
-	NVT_LOG("++\n");
-	NVT_LOG("pen_stationary: %d\n", pen_stationary);
-
-	//---set xdata index to EVENT BUF ADDR---
-	ret = nvt_set_page(ts->mmap->EVENT_BUF_ADDR | EVENT_MAP_HOST_CMD);
-	if (ret < 0) {
-		NVT_ERR("Set event buffer index fail!\n");
-		goto out;
-	}
-
-	for (i = 0; i < retry; i++) {
-		if (buf[1] != 0x7E) {
-			buf[0] = EVENT_MAP_HOST_CMD;
-			buf[1] = 0x7E;
-			buf[2] = pen_stationary;
-			ret = CTP_SPI_WRITE(ts->client, buf, 3);
-			if (ret < 0) {
-				NVT_ERR("Write command fail!\n");
-				goto out;
-			}
-		}
-
-		usleep_range(10000, 11000);
-
-		buf[0] = EVENT_MAP_HOST_CMD;
-		buf[1] = 0xFF;
-		CTP_SPI_READ(ts->client, buf, 2);
-		if (buf[1] == 0x00)
-			break;
-	}
-
-	if (unlikely(i >= retry)) {
-		NVT_ERR("send cmd failed, buf[1] = 0x%02X\n", buf[1]);
-		ret = -1;
-	} else {
-		NVT_LOG("send cmd success, tried %d times\n", i);
-		ret = 0;
-	}
-
-out:
-	NVT_LOG("--\n");
-	return ret;
-}
-
-static ssize_t nvt_active_pen_stationary_proc_write(struct file *filp,
-						    const char __user *buf,
-						    size_t count, loff_t *f_pos)
-{
-	int32_t ret;
-	int32_t tmp;
-	uint8_t pen_stationary;
-	char *tmp_buf = NULL;
-
-	NVT_LOG("++\n");
-
-	if (count == 0 || count > 2) {
-		NVT_ERR("Invalid value!, count = %zu\n", count);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	tmp_buf = kzalloc(count + 1, GFP_KERNEL);
-	if (!tmp_buf) {
-		NVT_ERR("Allocate tmp_buf fail!\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-	if (copy_from_user(tmp_buf, buf, count)) {
-		NVT_ERR("copy_from_user() error!\n");
-		ret = -EFAULT;
-		goto out;
-	}
-
-	ret = sscanf(tmp_buf, "%d", &tmp);
-	if (ret != 1) {
-		NVT_ERR("Invalid value!, ret = %d\n", ret);
-		ret = -EINVAL;
-		goto out;
-	}
-	pen_stationary = (uint8_t)tmp;
-	NVT_LOG("pen_stationary = %d\n", pen_stationary);
-
-	if (mutex_lock_interruptible(&ts->lock)) {
-		ret = -ERESTARTSYS;
-		goto out;
-	}
-
-#if NVT_TOUCH_ESD_PROTECT
-	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
-
-	nvt_set_active_pen_stationary(pen_stationary);
-
-	mutex_unlock(&ts->lock);
-
-	ret = count;
-out:
-	if (tmp_buf)
-		kfree(tmp_buf);
-	NVT_LOG("--\n");
-	return ret;
-}
-
-#ifdef HAVE_PROC_OPS
-static const struct proc_ops nvt_active_pen_stationary_fops = {
-	.proc_write = nvt_active_pen_stationary_proc_write,
-};
-#else
-static const struct file_operations nvt_active_pen_stationary_fops = {
-	.owner = THIS_MODULE,
-	.write = nvt_active_pen_stationary_proc_write,
-};
-#endif
-
 //thp start 6.9
 #if TOUCH_THP_SUPPORT
 static ssize_t nvt_eventbuf_debug_read(struct file *file, char __user *buff,
@@ -1455,318 +1180,6 @@ static const struct file_operations xm_htc_idle_wake_th_fops = {
 	.owner = THIS_MODULE,
 	.read = xm_htc_idle_wake_th_proc_read,
 	.write = xm_htc_idle_wake_th_proc_write,
-};
-#endif
-
-int32_t nvt_xm_htc_set_stylus_enable(int16_t stylus_enable)
-{
-	int32_t ret = 0;
-
-	NVT_LOG("++, set stylus_enable: %d\n", stylus_enable);
-	ret = nvt_set_extend_custom_cmd(0x04, stylus_enable);
-
-	if (ret < 0) {
-		NVT_ERR("nvt_set_extend_custom_cmd fail! ret=%d\n", ret);
-		goto out;
-	}
-
-out:
-	NVT_LOG("--\n");
-	return ret;
-}
-
-int32_t nvt_xm_htc_get_stylus_enable(int16_t *stylus_enable)
-{
-	int32_t ret = 0;
-
-	NVT_LOG("++\n");
-
-	ret = nvt_get_extend_custom_cmd(0x04, stylus_enable);
-	if (ret < 0) {
-		NVT_ERR("nvt_get_extend_custom_cmd fail! ret=%d\n", ret);
-		goto out;
-	}
-	NVT_LOG("get stylus_enable: %d\n", *stylus_enable);
-
-out:
-	NVT_LOG("--\n");
-	return ret;
-}
-
-static ssize_t xm_htc_stylus_enable_proc_read(struct file *filp,
-					      char __user *buf, size_t count,
-					      loff_t *f_pos)
-{
-	static int finished = 0;
-	int32_t cnt = 0;
-	int32_t len = 0;
-	int16_t stylus_enable;
-	char tmp_buf[64];
-
-	NVT_LOG("++\n");
-
-	/*
-	* We return 0 to indicate end of file, that we have
-	* no more information. Otherwise, processes will
-	* continue to read from us in an endless loop.
-	*/
-	if (finished) {
-		NVT_LOG("read END\n");
-		finished = 0;
-		return 0;
-	}
-	finished = 1;
-
-	if (mutex_lock_interruptible(&ts->lock)) {
-		return -ERESTARTSYS;
-	}
-
-#if NVT_TOUCH_ESD_PROTECT
-	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
-
-	nvt_xm_htc_get_stylus_enable(&stylus_enable);
-
-	mutex_unlock(&ts->lock);
-
-	cnt = snprintf(tmp_buf, sizeof(tmp_buf), "stylus_enable: %d\n",
-		       stylus_enable);
-	if (copy_to_user(buf, tmp_buf, sizeof(tmp_buf))) {
-		NVT_ERR("copy_to_user() error!\n");
-		return -EFAULT;
-	}
-	buf += cnt;
-	len += cnt;
-
-	NVT_LOG("--\n");
-	return len;
-}
-
-static ssize_t xm_htc_stylus_enable_proc_write(struct file *filp,
-					       const char __user *buf,
-					       size_t count, loff_t *f_pos)
-{
-	int32_t ret;
-	int32_t tmp;
-	int16_t stylus_enable;
-	char *tmp_buf = NULL;
-
-	NVT_LOG("++\n");
-
-	if (count == 0 || count > 2) {
-		NVT_ERR("Invalid value! count = %zu\n", count);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	tmp_buf = kzalloc(count + 1, GFP_KERNEL);
-	if (!tmp_buf) {
-		NVT_ERR("Allocate tmp_buf fail!\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-	if (copy_from_user(tmp_buf, buf, count)) {
-		NVT_ERR("copy_from_user() error!\n");
-		ret = -EFAULT;
-		goto out;
-	}
-
-	ret = sscanf(tmp_buf, "%d", &tmp);
-	if (ret != 1) {
-		NVT_ERR("Invalid value! ret = %d\n", ret);
-		ret = -EINVAL;
-		goto out;
-	}
-	stylus_enable = (int16_t)tmp;
-	NVT_LOG("stylus_enable = %d\n", stylus_enable);
-
-	if (mutex_lock_interruptible(&ts->lock)) {
-		ret = -ERESTARTSYS;
-		goto out;
-	}
-
-#if NVT_TOUCH_ESD_PROTECT
-	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
-
-	nvt_xm_htc_set_stylus_enable(stylus_enable);
-
-	mutex_unlock(&ts->lock);
-
-	ret = count;
-out:
-	if (tmp_buf)
-		kfree(tmp_buf);
-	NVT_LOG("--\n");
-	return ret;
-}
-
-#ifdef HAVE_PROC_OPS
-static const struct proc_ops xm_htc_stylus_enable_fops = {
-	.proc_read = xm_htc_stylus_enable_proc_read,
-	.proc_write = xm_htc_stylus_enable_proc_write,
-};
-#else
-static const struct file_operations xm_htc_stylus_enable_fops = {
-	.owner = THIS_MODULE,
-	.read = xm_htc_stylus_enable_proc_read,
-	.write = xm_htc_stylus_enable_proc_write,
-};
-#endif
-
-int32_t nvt_xm_htc_set_stylus_only(int16_t stylus_only)
-{
-	int32_t ret = 0;
-
-	NVT_LOG("++\n");
-	NVT_LOG("set stylus_only: %d\n", stylus_only);
-
-	ret = nvt_set_extend_custom_cmd(0x05, stylus_only);
-	if (ret < 0) {
-		NVT_ERR("nvt_set_extend_custom_cmd fail! ret=%d\n", ret);
-		goto out;
-	}
-
-out:
-	NVT_LOG("--\n");
-	return ret;
-}
-
-int32_t nvt_xm_htc_get_stylus_only(int16_t *stylus_only)
-{
-	int32_t ret = 0;
-
-	NVT_LOG("++\n");
-
-	ret = nvt_get_extend_custom_cmd(0x05, stylus_only);
-	if (ret < 0) {
-		NVT_ERR("nvt_get_extend_custom_cmd fail! ret=%d\n", ret);
-		goto out;
-	}
-	NVT_LOG("get stylus_only: %d\n", *stylus_only);
-
-out:
-	NVT_LOG("--\n");
-	return ret;
-}
-
-static ssize_t xm_htc_stylus_only_proc_read(struct file *filp, char __user *buf,
-					    size_t count, loff_t *f_pos)
-{
-	static int finished = 0;
-	int32_t cnt = 0;
-	int32_t len = 0;
-	int16_t stylus_only;
-	char tmp_buf[64];
-
-	NVT_LOG("++\n");
-
-	/*
-	* We return 0 to indicate end of file, that we have
-	* no more information. Otherwise, processes will
-	* continue to read from us in an endless loop.
-	*/
-	if (finished) {
-		NVT_LOG("read END\n");
-		finished = 0;
-		return 0;
-	}
-	finished = 1;
-
-	if (mutex_lock_interruptible(&ts->lock)) {
-		return -ERESTARTSYS;
-	}
-
-#if NVT_TOUCH_ESD_PROTECT
-	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
-
-	nvt_xm_htc_get_stylus_only(&stylus_only);
-
-	mutex_unlock(&ts->lock);
-
-	cnt = snprintf(tmp_buf, sizeof(tmp_buf), "stylus_only: %d\n",
-		       stylus_only);
-	if (copy_to_user(buf, tmp_buf, sizeof(tmp_buf))) {
-		NVT_ERR("copy_to_user() error!\n");
-		return -EFAULT;
-	}
-	buf += cnt;
-	len += cnt;
-
-	NVT_LOG("--\n");
-	return len;
-}
-
-static ssize_t xm_htc_stylus_only_proc_write(struct file *filp,
-					     const char __user *buf,
-					     size_t count, loff_t *f_pos)
-{
-	int32_t ret;
-	int32_t tmp;
-	int16_t stylus_only;
-	char *tmp_buf = NULL;
-
-	NVT_LOG("++\n");
-
-	if (count == 0 || count > 2) {
-		NVT_ERR("Invalid value! count = %zu\n", count);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	tmp_buf = kzalloc(count + 1, GFP_KERNEL);
-	if (!tmp_buf) {
-		NVT_ERR("Allocate tmp_buf fail!\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-	if (copy_from_user(tmp_buf, buf, count)) {
-		NVT_ERR("copy_from_user() error!\n");
-		ret = -EFAULT;
-		goto out;
-	}
-
-	ret = sscanf(tmp_buf, "%d", &tmp);
-	if (ret != 1) {
-		NVT_ERR("Invalid value! ret = %d\n", ret);
-		ret = -EINVAL;
-		goto out;
-	}
-	stylus_only = (int16_t)tmp;
-	NVT_LOG("stylus_only = %d\n", stylus_only);
-
-	if (mutex_lock_interruptible(&ts->lock)) {
-		ret = -ERESTARTSYS;
-		goto out;
-	}
-
-#if NVT_TOUCH_ESD_PROTECT
-	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
-
-	nvt_xm_htc_set_stylus_only(stylus_only);
-
-	mutex_unlock(&ts->lock);
-
-	ret = count;
-out:
-	if (tmp_buf)
-		kfree(tmp_buf);
-	NVT_LOG("--\n");
-	return ret;
-}
-
-#ifdef HAVE_PROC_OPS
-static const struct proc_ops xm_htc_stylus_only_fops = {
-	.proc_read = xm_htc_stylus_only_proc_read,
-	.proc_write = xm_htc_stylus_only_proc_write,
-};
-#else
-static const struct file_operations xm_htc_stylus_only_fops = {
-	.owner = THIS_MODULE,
-	.read = xm_htc_stylus_only_proc_read,
-	.write = xm_htc_stylus_only_proc_write,
 };
 #endif
 
@@ -2689,84 +2102,6 @@ static const struct proc_ops xm_htc_hand_scan_rate_fops = {
 static const struct file_operations xm_htc_hand_scan_rate_fops = {
 	.owner = THIS_MODULE,
 	.read = xm_htc_hand_scan_rate_proc_read,
-};
-#endif
-
-int32_t nvt_xm_htc_get_pen_scan_rate(int16_t *pen_scan_rate)
-{
-	int32_t ret = 0;
-
-	NVT_LOG("++\n");
-
-	ret = nvt_get_extend_custom_cmd(0x0B, pen_scan_rate);
-	if (ret < 0) {
-		NVT_ERR("nvt_get_extend_custom_cmd fail! ret=%d\n", ret);
-		goto out;
-	}
-	NVT_LOG("get pen_scan_rate: %d\n", *pen_scan_rate);
-
-out:
-	NVT_LOG("--\n");
-	return ret;
-}
-
-static ssize_t xm_htc_pen_scan_rate_proc_read(struct file *filp,
-					      char __user *buf, size_t count,
-					      loff_t *f_pos)
-{
-	static int finished = 0;
-	int32_t cnt = 0;
-	int32_t len = 0;
-	int16_t pen_scan_rate;
-	char tmp_buf[64];
-
-	NVT_LOG("++\n");
-
-	/*
-	* We return 0 to indicate end of file, that we have
-	* no more information. Otherwise, processes will
-	* continue to read from us in an endless loop.
-	*/
-	if (finished) {
-		NVT_LOG("read END\n");
-		finished = 0;
-		return 0;
-	}
-	finished = 1;
-
-	if (mutex_lock_interruptible(&ts->lock)) {
-		return -ERESTARTSYS;
-	}
-
-#if NVT_TOUCH_ESD_PROTECT
-	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
-
-	nvt_xm_htc_get_pen_scan_rate(&pen_scan_rate);
-
-	mutex_unlock(&ts->lock);
-
-	cnt = snprintf(tmp_buf, sizeof(tmp_buf), "pen_scan_rate: %d\n",
-		       pen_scan_rate);
-	if (copy_to_user(buf, tmp_buf, sizeof(tmp_buf))) {
-		NVT_ERR("copy_to_user() error!\n");
-		return -EFAULT;
-	}
-	buf += cnt;
-	len += cnt;
-
-	NVT_LOG("--\n");
-	return len;
-}
-
-#ifdef HAVE_PROC_OPS
-static const struct proc_ops xm_htc_pen_scan_rate_fops = {
-	.proc_read = xm_htc_pen_scan_rate_proc_read,
-};
-#else
-static const struct file_operations xm_htc_pen_scan_rate_fops = {
-	.owner = THIS_MODULE,
-	.read = xm_htc_pen_scan_rate_proc_read,
 };
 #endif
 
@@ -4803,122 +4138,6 @@ static const struct file_operations xm_htc_idle_high_base_en_fops = {
 };
 #endif
 
-int32_t nvt_xm_htc_set_stylus_pressure(int16_t stylus_pressure)
-{
-	int32_t ret = 0;
-	uint8_t buf[8] = { 0 };
-	uint8_t sub_cmd = 0x27;
-	int16_t value = stylus_pressure;
-
-	NVT_LOG("++\n");
-
-	NVT_LOG("set stylus_pressure: %d\n", stylus_pressure);
-
-	if (ts->xm_htc_sw_reset) {
-		NVT_ERR("ts->xm_htc_sw_reset=%d\n", ts->xm_htc_sw_reset);
-		return -EBUSY;
-	}
-
-	if (ts->nvt_tool_in_use) {
-		NVT_ERR("NVT tool in use.\n");
-		return -EBUSY;
-	}
-
-	NVT_LOG("cmd: 0xBF, sub_cmd: 0x%02X, value: %d\n", sub_cmd, value);
-	//---set xdata index to EVENT BUF ADDR---
-	ret = nvt_set_page(ts->mmap->EVENT_BUF_ADDR | EVENT_MAP_HOST_CMD);
-	if (ret < 0) {
-		NVT_ERR("nvt_set_page fail! ret=%d\n", ret);
-		goto out;
-	}
-
-	buf[0] = EVENT_MAP_HOST_CMD;
-	buf[1] = 0xBF;
-	buf[2] = sub_cmd;
-	buf[3] = 0x00; // W
-	buf[4] = value & 0xFF;
-	buf[5] = (value >> 8) & 0xFF;
-	ret = CTP_SPI_WRITE(ts->client, buf, 6);
-	if (ret < 0) {
-		NVT_ERR("--, CTP_SPI_WRITE fail! ret=%d\n", ret);
-		goto out;
-	}
-
-out:
-	NVT_LOG("--\n");
-	return ret;
-}
-
-static ssize_t xm_htc_stylus_pressure_proc_write(struct file *filp,
-						 const char __user *buf,
-						 size_t count, loff_t *f_pos)
-{
-	int32_t ret;
-	int32_t tmp;
-	int16_t stylus_pressure;
-	char *tmp_buf = NULL;
-
-	NVT_LOG("++\n");
-
-	if (count == 0 || count > 2) {
-		NVT_ERR("Invalid value! count = %zu\n", count);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	tmp_buf = kzalloc(count + 1, GFP_KERNEL);
-	if (!tmp_buf) {
-		NVT_ERR("Allocate tmp_buf fail!\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-	if (copy_from_user(tmp_buf, buf, count)) {
-		NVT_ERR("copy_from_user() error!\n");
-		ret = -EFAULT;
-		goto out;
-	}
-
-	ret = sscanf(tmp_buf, "%d", &tmp);
-	if (ret != 1) {
-		NVT_ERR("Invalid value! ret = %d\n", ret);
-		ret = -EINVAL;
-		goto out;
-	}
-	stylus_pressure = (int16_t)tmp;
-	NVT_LOG("stylus_pressure = %d\n", stylus_pressure);
-
-	if (mutex_lock_interruptible(&ts->lock)) {
-		ret = -ERESTARTSYS;
-		goto out;
-	}
-
-#if NVT_TOUCH_ESD_PROTECT
-	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
-
-	nvt_xm_htc_set_stylus_pressure(stylus_pressure);
-
-	mutex_unlock(&ts->lock);
-
-	ret = count;
-out:
-	if (tmp_buf)
-		kfree(tmp_buf);
-	NVT_LOG("--\n");
-	return ret;
-}
-
-#ifdef HAVE_PROC_OPS
-static const struct proc_ops xm_htc_stylus_pressure_fops = {
-	.proc_write = xm_htc_stylus_pressure_proc_write,
-};
-#else
-static const struct file_operations xm_htc_stylus_pressure_fops = {
-	.owner = THIS_MODULE,
-	.write = xm_htc_stylus_pressure_proc_write,
-};
-#endif
-
 #endif /* #if TOUCH_THP_SUPPORT */
 //thp end 6.9
 
@@ -4966,28 +4185,6 @@ int32_t nvt_extra_proc_init(void)
 		NVT_LOG("create proc/%s Succeeded!\n", NVT_DIFF);
 	}
 
-	if (ts->pen_support) {
-		NVT_proc_pen_switch_entry = proc_create(
-			NVT_PEN_SWITCH, 0666, NULL, &nvt_pen_switch_fops);
-		if (NVT_proc_pen_switch_entry == NULL) {
-			NVT_ERR("create proc/%s Failed!\n", NVT_PEN_SWITCH);
-			return -ENOMEM;
-		} else {
-			NVT_LOG("create proc/%s Succeeded!\n", NVT_PEN_SWITCH);
-		}
-
-		NVT_proc_active_pen_stationary_entry =
-			proc_create(NVT_ACTIVE_PEN_STATIONARY, 0666, NULL,
-				    &nvt_active_pen_stationary_fops);
-		if (NVT_proc_active_pen_stationary_entry == NULL) {
-			NVT_ERR("create proc/%s Failed!\n",
-				NVT_ACTIVE_PEN_STATIONARY);
-			return -ENOMEM;
-		} else {
-			NVT_LOG("create proc/%s Succeeded!\n",
-				NVT_ACTIVE_PEN_STATIONARY);
-		}
-	}
 
 	//thp start 6.9
 #if TOUCH_THP_SUPPORT
@@ -5018,23 +4215,7 @@ int32_t nvt_extra_proc_init(void)
 		NVT_LOG("create proc/%s Succeeded!\n", XM_HTC_IDLE_WAKE_TH);
 	}
 
-	XM_HTC_proc_stylus_enable_entry = proc_create(
-		XM_HTC_STYLUS_ENABLE, 0666, NULL, &xm_htc_stylus_enable_fops);
-	if (XM_HTC_proc_stylus_enable_entry == NULL) {
-		NVT_ERR("create proc/%s Failed!\n", XM_HTC_STYLUS_ENABLE);
-		return -ENOMEM;
-	} else {
-		NVT_LOG("create proc/%s Succeeded!\n", XM_HTC_STYLUS_ENABLE);
-	}
 
-	XM_HTC_proc_stylus_only_entry = proc_create(
-		XM_HTC_STYLUS_ONLY, 0666, NULL, &xm_htc_stylus_only_fops);
-	if (XM_HTC_proc_stylus_only_entry == NULL) {
-		NVT_ERR("create proc/%s Failed!\n", XM_HTC_STYLUS_ONLY);
-		return -ENOMEM;
-	} else {
-		NVT_LOG("create proc/%s Succeeded!\n", XM_HTC_STYLUS_ONLY);
-	}
 
 	XM_HTC_proc_raw_data_type_entry = proc_create(
 		XM_HTC_RAW_DATA_TYPE, 0666, NULL, &xm_htc_raw_data_type_fops);
@@ -5099,14 +4280,6 @@ int32_t nvt_extra_proc_init(void)
 		NVT_LOG("create proc/%s Succeeded!\n", XM_HTC_HAND_SCAN_RATE);
 	}
 
-	XM_HTC_proc_pen_scan_rate_entry = proc_create(
-		XM_HTC_PEN_SCAN_RATE, 0666, NULL, &xm_htc_pen_scan_rate_fops);
-	if (XM_HTC_proc_pen_scan_rate_entry == NULL) {
-		NVT_ERR("create proc/%s Failed!\n", XM_HTC_PEN_SCAN_RATE);
-		return -ENOMEM;
-	} else {
-		NVT_LOG("create proc/%s Succeeded!\n", XM_HTC_PEN_SCAN_RATE);
-	}
 
 	XM_HTC_proc_calibration_entry = proc_create(
 		XM_HTC_CALIBRATION, 0666, NULL, &xm_htc_calibration_fops);
@@ -5234,15 +4407,6 @@ int32_t nvt_extra_proc_init(void)
 			XM_HTC_IDLE_HIGH_BASE_EN);
 	}
 
-	XM_HTC_proc_stylus_pressure_entry =
-		proc_create(XM_HTC_STYLUS_PRESSURE, 0666, NULL,
-			    &xm_htc_stylus_pressure_fops);
-	if (XM_HTC_proc_stylus_pressure_entry == NULL) {
-		NVT_ERR("create proc/%s Failed!\n", XM_HTC_STYLUS_PRESSURE);
-		return -ENOMEM;
-	} else {
-		NVT_LOG("create proc/%s Succeeded!\n", XM_HTC_STYLUS_PRESSURE);
-	}
 
 #endif /* #if TOUCH_THP_SUPPORT */
 	//thp end 6.9
@@ -5283,20 +4447,6 @@ void nvt_extra_proc_deinit(void)
 		NVT_LOG("Removed /proc/%s\n", NVT_DIFF);
 	}
 
-	if (ts->pen_support) {
-		if (NVT_proc_pen_switch_entry != NULL) {
-			remove_proc_entry(NVT_PEN_SWITCH, NULL);
-			NVT_proc_pen_switch_entry = NULL;
-			NVT_LOG("Removed /proc/%s\n", NVT_PEN_SWITCH);
-		}
-
-		if (NVT_proc_active_pen_stationary_entry != NULL) {
-			remove_proc_entry(NVT_ACTIVE_PEN_STATIONARY, NULL);
-			NVT_proc_active_pen_stationary_entry = NULL;
-			NVT_LOG("Removed /proc/%s\n",
-				NVT_ACTIVE_PEN_STATIONARY);
-		}
-	}
 
 	//thp start 6.9
 #if TOUCH_THP_SUPPORT
@@ -5318,17 +4468,7 @@ void nvt_extra_proc_deinit(void)
 		NVT_LOG("Removed /proc/%s\n", XM_HTC_IDLE_WAKE_TH);
 	}
 
-	if (XM_HTC_proc_stylus_enable_entry != NULL) {
-		remove_proc_entry(XM_HTC_STYLUS_ENABLE, NULL);
-		XM_HTC_proc_stylus_enable_entry = NULL;
-		NVT_LOG("Removed /proc/%s\n", XM_HTC_STYLUS_ENABLE);
-	}
 
-	if (XM_HTC_proc_stylus_only_entry != NULL) {
-		remove_proc_entry(XM_HTC_STYLUS_ONLY, NULL);
-		XM_HTC_proc_stylus_only_entry = NULL;
-		NVT_LOG("Removed /proc/%s\n", XM_HTC_STYLUS_ONLY);
-	}
 
 	if (XM_HTC_proc_raw_data_type_entry != NULL) {
 		remove_proc_entry(XM_HTC_RAW_DATA_TYPE, NULL);
@@ -5372,11 +4512,6 @@ void nvt_extra_proc_deinit(void)
 		NVT_LOG("Removed /proc/%s\n", XM_HTC_HAND_SCAN_RATE);
 	}
 
-	if (XM_HTC_proc_pen_scan_rate_entry != NULL) {
-		remove_proc_entry(XM_HTC_PEN_SCAN_RATE, NULL);
-		XM_HTC_proc_pen_scan_rate_entry = NULL;
-		NVT_LOG("Removed /proc/%s\n", XM_HTC_PEN_SCAN_RATE);
-	}
 
 	if (XM_HTC_proc_calibration_entry != NULL) {
 		remove_proc_entry(XM_HTC_CALIBRATION, NULL);
@@ -5455,11 +4590,6 @@ void nvt_extra_proc_deinit(void)
 		NVT_LOG("Removed /proc/%s\n", XM_HTC_IDLE_HIGH_BASE_EN);
 	}
 
-	if (XM_HTC_proc_stylus_pressure_entry != NULL) {
-		remove_proc_entry(XM_HTC_STYLUS_PRESSURE, NULL);
-		XM_HTC_proc_stylus_pressure_entry = NULL;
-		NVT_LOG("Removed /proc/%s\n", XM_HTC_STYLUS_PRESSURE);
-	}
 
 #endif /* #if TOUCH_THP_SUPPORT */
 	//thp end 6.9

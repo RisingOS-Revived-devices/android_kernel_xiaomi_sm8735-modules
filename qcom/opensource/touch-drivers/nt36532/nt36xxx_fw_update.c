@@ -1010,8 +1010,6 @@ void Boot_Update_Firmware(struct work_struct *work)
 {
 	mutex_lock(&ts->lock);
 	nvt_update_firmware(BOOT_UPDATE_FIRMWARE_NAME);
-	if (ts->pen_support)
-		update_pen_status(true);
 	mutex_unlock(&ts->lock);
 }
 #endif /* BOOT_UPDATE_FIRMWARE */

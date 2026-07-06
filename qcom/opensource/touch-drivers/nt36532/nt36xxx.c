@@ -66,9 +66,6 @@ extern void nvt_mp_proc_deinit(void);
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
 #define TOUCH_MAJOR_MAX_VALUE 255
 
-extern int pen_charge_state_notifier_register_client(struct notifier_block *nb);
-extern int
-pen_charge_state_notifier_unregister_client(struct notifier_block *nb);
 extern ssize_t mi_dsi_panel_lockdown_info_read(unsigned char *plockdowninfo);
 static int32_t nvt_ts_suspend(struct device *dev);
 static int32_t nvt_ts_resume(struct device *dev);
@@ -102,7 +99,6 @@ extern void Boot_Update_Firmware(struct work_struct *work);
 
 extern int32_t nvt_xm_htc_set_idle_baseline_update(void);
 extern int32_t nvt_xm_htc_set_op_mode(int16_t op_mode);
-extern int32_t nvt_xm_htc_set_stylus_enable(int16_t stylus_enable);
 
 #if defined(_MSM_DRM_NOTIFY_H_)
 static int nvt_drm_notifier_callback(struct notifier_block *self,
@@ -366,315 +362,6 @@ const struct mtk_chip_config spi_ctrdata = {
 #endif
 
 static uint8_t bTouchIsAwake = 0;
-
-/* MIPP Start */
-#if !TOUCH_THP_SUPPORT
-void nvt_pen_data_collect(struct nvt_pen_press *press)
-{
-	struct nvt_pen_pdata *pdata = NULL;
-	struct nvt_pen_press_buff *press_buff = NULL;
-
-	if (IS_ERR_OR_NULL(ts->pen_pdata)) {
-		NVT_ERR("MIPP padta has not been registered\n");
-		return;
-	}
-	pdata = ts->pen_pdata;
-
-	spin_lock(&pdata->spinlock);
-	press_buff = pdata->buff;
-	memcpy(&press_buff->buff[press_buff->head], press,
-	       sizeof(struct nvt_pen_press));
-	press_buff->head++;
-	press_buff->head &= MIPP_MAX_BUFFER_LENGTH - 1;
-	spin_unlock(&pdata->spinlock);
-}
-
-unsigned int nvt_pen_press_get(void)
-{
-	int read_pos;
-	unsigned int pressure;
-	struct nvt_pen_pdata *pdata = NULL;
-	struct nvt_pen_press_buff *press_buff = NULL;
-
-	/*attention*/
-	if (IS_ERR_OR_NULL(ts->pen_pdata)) {
-		NVT_ERR("MIPP pdata has not been registered\n");
-		return 0;
-	}
-	pdata = ts->pen_pdata;
-
-	spin_lock(&pdata->spinlock);
-	press_buff = pdata->buff;
-	if (press_buff->head) {
-		read_pos = press_buff->head - 1;
-	} else {
-		read_pos = MIPP_MAX_BUFFER_LENGTH - 1;
-	}
-	pressure = press_buff->buff[read_pos].pressure;
-	spin_unlock(&pdata->spinlock);
-
-	return pressure;
-}
-
-long long nvt_time_stamp_transfer(char *data, int len)
-{
-	int i = 0;
-	long long time = 0;
-
-	len = (len > 8) ? 8 : len;
-
-	for (i = 0; i < (len / 2); i++) {
-		time |= data[i * 2 + 1];
-		time <<= 8;
-		time |= data[i * 2];
-		if (i < (len / 2 - 1)) {
-			time <<= 8;
-		}
-	}
-
-	//NVT_LOG("%lld\n", time);
-	return time;
-}
-
-static ssize_t nvt_pen_fops_write(struct file *file, const char __user *user,
-				  size_t size, loff_t *loff)
-{
-	int copy = 0;
-	struct nvt_pen_press press;
-	char data[MIPP_PEN_DATA_LENGTH] = { 0 };
-
-	copy = min(size, (size_t)MIPP_PEN_DATA_LENGTH);
-	if (copy_from_user(data, user, copy)) {
-		return -EFAULT;
-	}
-
-	if (data[0] != 0x05) {
-		goto err_data_format;
-	}
-	press.time_stamp = nvt_time_stamp_transfer(&data[MIPP_PEN_TIME_OFFSET],
-						   MIPP_PEN_TIME_LENGTH);
-	press.pressure = ((unsigned int)data[2] << 8) | data[1];
-	//pressure collect
-	nvt_pen_data_collect(&press);
-
-err_data_format:
-	return 0;
-}
-
-static const struct file_operations nvt_pen_fops = {
-	.owner = THIS_MODULE,
-	.write = nvt_pen_fops_write,
-};
-#endif
-
-static void nvt_pen_hopping_frequency(uint8_t pen_id,
-				      uint8_t pen_hopping_frequency)
-{
-	int cmd = 0;
-	char *mesg[2];
-	char cmd_str[MIPP_MAX_UEVENT_LENGTH];
-	struct device *device = NULL;
-
-	if (IS_ERR_OR_NULL(ts->client)) {
-		NVT_ERR("spi client has not been registered\n");
-		return;
-	}
-
-	cmd = ((int)MIPP_PEN_FREQUENCY << 16) | ((pen_id & 0xFF) << 8) |
-	      (pen_hopping_frequency & 0xFF);
-	if (snprintf(cmd_str, sizeof(cmd_str), "MIPP_PEN_STATE=%d", cmd) < 0) {
-		NVT_ERR("failed to copy cmd\n");
-		return;
-	}
-
-	mesg[0] = cmd_str;
-	mesg[1] = NULL;
-
-	device = &ts->client->dev;
-	kobject_uevent_env(&device->kobj, KOBJ_CHANGE, mesg);
-	NVT_LOG("send pen hopping cmd: %x\n", cmd);
-}
-
-static void nvt_pen_AG_update(uint8_t pen_id, uint8_t state)
-{
-	int cmd = 0;
-	char *mesg[2];
-	char cmd_str[MIPP_MAX_UEVENT_LENGTH];
-	struct device *device = NULL;
-
-	if (IS_ERR_OR_NULL(ts->client)) {
-		NVT_ERR("spi client has not been registered\n");
-		return;
-	}
-
-	cmd = ((int)MIPP_PEN_AG << 16) | ((pen_id & 0xFF) << 8) |
-	      (state & 0xFF);
-	if (snprintf(cmd_str, sizeof(cmd_str), "MIPP_PEN_STATE=%d", cmd) < 0) {
-		NVT_ERR("failed to copy cmd\n");
-		return;
-	}
-
-	mesg[0] = cmd_str;
-	mesg[1] = NULL;
-
-	device = &ts->client->dev;
-	kobject_uevent_env(&device->kobj, KOBJ_CHANGE, mesg);
-	NVT_LOG("send pen AG cmd: %x\n", cmd);
-}
-
-static void nvt_pen_report_status_update(uint8_t pen_id, uint8_t state)
-{
-	int cmd = 0;
-	char *mesg[2];
-	char cmd_str[MIPP_MAX_UEVENT_LENGTH];
-	struct device *device = NULL;
-
-	if (IS_ERR_OR_NULL(ts->client)) {
-		NVT_ERR("spi client has not been registered\n");
-		return;
-	}
-
-	cmd = ((int)MIPP_PEN_REPORT << 16) | ((pen_id & 0xFF) << 8) |
-	      (state & 0xFF);
-	if (snprintf(cmd_str, sizeof(cmd_str), "MIPP_PEN_STATE=%d", cmd) < 0) {
-		NVT_ERR("failed to copy cmd\n");
-		return;
-	}
-
-	mesg[0] = cmd_str;
-	mesg[1] = NULL;
-
-	device = &ts->client->dev;
-	kobject_uevent_env(&device->kobj, KOBJ_CHANGE, mesg);
-	NVT_LOG("send pen report status cmd: %x\n", cmd);
-}
-
-#if !TOUCH_THP_SUPPORT
-static int nvt_pen_device_register(struct nvt_ts_data *nvt_data)
-{
-	int ret = 0;
-	struct device *dev = &nvt_data->client->dev;
-	struct nvt_pen_pdata *pdata = NULL;
-	struct nvt_pen_device *device = NULL;
-
-	pdata = devm_kzalloc(dev, sizeof(struct nvt_pen_pdata), GFP_KERNEL);
-	if (pdata == NULL) {
-		NVT_ERR("MIPP failed to allocated pdata\n");
-		ret = -1;
-		goto err_malloc_pdata;
-	}
-
-	spin_lock_init(&pdata->spinlock);
-
-	pdata->dev =
-		devm_kzalloc(dev, sizeof(struct nvt_pen_device), GFP_KERNEL);
-	if (pdata->dev == NULL) {
-		NVT_ERR("MIPP failed to allocated device\n");
-		ret = -1;
-		goto err_malloc_dev;
-	}
-
-	pdata->buff = devm_kzalloc(dev, sizeof(struct nvt_pen_press_buff),
-				   GFP_KERNEL);
-	if (pdata->buff == NULL) {
-		NVT_ERR("MIPP failed to allocated buffer\n");
-		ret = -1;
-		goto err_malloc_buff;
-	}
-
-	device = pdata->dev;
-	device->dev = NULL;
-	device->class.name = "mipp_pen";
-	device->class.owner = THIS_MODULE;
-
-	ret = class_register(&device->class);
-	if (ret < 0) {
-		NVT_LOG("MIPP class register fail\n");
-		goto err_register_class;
-	}
-
-	if (alloc_chrdev_region(&device->basedev, 0, 1, "mipp_pen") < 0) {
-		NVT_LOG("MIPP alloc region fail\n");
-		ret = -1;
-		goto err_alloc_region;
-	}
-
-	cdev_init(&device->cdev, &nvt_pen_fops);
-	if (cdev_add(&device->cdev, (device->basedev + 0), 1)) {
-		NVT_LOG("MIPP add character device fail\n");
-		ret = -1;
-		goto err_add_cdev;
-	}
-
-	device->dev = device_create(&device->class, NULL, device->basedev + 0,
-				    NULL, "mipp_pen0");
-	if (IS_ERR_OR_NULL(device->dev)) {
-		NVT_LOG("MIPP create device fail\n");
-		ret = -1;
-		goto err_device_create;
-	}
-
-	nvt_data->pen_pdata = pdata;
-	NVT_LOG("MIPP pen device register success\n");
-	return 0;
-
-err_device_create:
-	cdev_del(&device->cdev);
-err_add_cdev:
-	unregister_chrdev_region(device->basedev, 1);
-err_alloc_region:
-	class_destroy(&device->class);
-err_register_class:
-	device = NULL;
-err_malloc_buff:
-	if (pdata->buff) {
-		devm_kfree(dev, pdata->buff);
-		pdata->buff = NULL;
-	}
-err_malloc_dev:
-	if (pdata->dev) {
-		devm_kfree(dev, pdata->dev);
-		pdata->dev = NULL;
-	}
-err_malloc_pdata:
-	if (pdata) {
-		devm_kfree(dev, pdata);
-		pdata = NULL;
-	}
-	return ret;
-}
-
-static void nvt_pen_device_release(struct nvt_ts_data *nvt_data)
-{
-	struct device *dev = &nvt_data->client->dev;
-	struct nvt_pen_pdata *pdata = NULL;
-	struct nvt_pen_device *device = NULL;
-
-	pdata = nvt_data->pen_pdata;
-	device = nvt_data->pen_pdata->dev;
-	device_destroy(&device->class, device->basedev + 0);
-	cdev_del(&device->cdev);
-	unregister_chrdev_region(device->basedev, 1);
-	class_destroy(&device->class);
-	if (pdata->buff) {
-		devm_kfree(dev, pdata->buff);
-		pdata->buff = NULL;
-	}
-
-	device = NULL;
-	if (pdata->dev) {
-		devm_kfree(dev, pdata->dev);
-		pdata->dev = NULL;
-	}
-
-	if (pdata) {
-		devm_kfree(dev, pdata);
-		pdata = NULL;
-	}
-	NVT_LOG("MIPP device release success\n");
-}
-#endif
-/* MIPP End */
 
 /*******************************************************
 Description:
@@ -1784,10 +1471,6 @@ info_retry:
 	ts->max_button_num = buf[11];
 	ts->fw_type = buf[14];
 	ts->nvt_pid = (uint16_t)((buf[36] << 8) | buf[35]);
-	if (ts->pen_support) {
-		ts->x_gang_num = buf[37];
-		ts->y_gang_num = buf[38];
-	}
 	NVT_LOG("fw_ver=0x%02X, fw_type=0x%02X, PID=0x%04X\n", ts->fw_ver,
 		ts->fw_type, ts->nvt_pid);
 
@@ -2195,50 +1878,6 @@ void nvt_ts_wakeup_gesture_report(uint8_t gesture_id, uint8_t *data)
 	}
 }
 
-void report_single_click_pen_input(struct input_dev *dev)
-{
-	//pen down
-	input_report_abs(dev, ABS_X, 1);
-	input_report_abs(dev, ABS_Y, 1);
-	input_report_abs(dev, ABS_PRESSURE, 1);
-	input_report_key(dev, BTN_TOUCH, 1);
-	input_report_abs(dev, ABS_TILT_X, 1);
-	input_report_abs(dev, ABS_TILT_Y, 1);
-	input_report_abs(dev, ABS_DISTANCE, 0);
-	input_report_key(dev, BTN_TOOL_PEN, 1);
-	input_sync(dev);
-	//pen release
-	input_report_abs(dev, ABS_X, 0);
-	input_report_abs(dev, ABS_Y, 0);
-	input_report_abs(dev, ABS_PRESSURE, 0);
-	input_report_abs(dev, ABS_TILT_X, 0);
-	input_report_abs(dev, ABS_TILT_Y, 0);
-	input_report_abs(dev, ABS_DISTANCE, 1);
-	input_report_key(dev, BTN_TOUCH, 0);
-	input_report_key(dev, BTN_TOOL_PEN, 0);
-	input_sync(dev);
-}
-
-void nvt_ts_pen_gesture_report(uint8_t pen_gesture_id)
-{
-	switch (pen_gesture_id) {
-	case PEN_GESTURE_SINGLE_CLICK:
-		NVT_LOG("Gesture : Pen Single Click.\n");
-		if (ts->gesture_command & 0x02) {
-			if (ts->cur_pen == PEN_M80P)
-				report_single_click_pen_input(
-					ts->pen_input_dev_m80p);
-			else if (ts->cur_pen == PEN_P81C)
-				report_single_click_pen_input(
-					ts->pen_input_dev_p81c);
-		} else {
-			NVT_LOG("Gesture : Pen Click Not Enable.\n");
-		}
-		break;
-	default:
-		break;
-	}
-}
 #endif
 
 /*******************************************************
@@ -2261,8 +1900,6 @@ static int32_t nvt_parse_dt(struct device *dev)
 	ts->irq_gpio = of_get_named_gpio(np, "novatek,irq-gpio", 0);
 	NVT_LOG("novatek,irq-gpio=%d\n", ts->irq_gpio);
 
-	ts->pen_support = of_property_read_bool(np, "novatek,pen-support");
-	NVT_LOG("novatek,pen-support=%d\n", ts->pen_support);
 
 	ts->lcd_id_gpio = of_get_named_gpio(np, "novatek,lcd_id-gpio1", 0);
 	ts->lcd_id_gpio2 = of_get_named_gpio(np, "novatek,lcd_id-gpio2", 0);
@@ -2341,7 +1978,6 @@ static int32_t nvt_parse_dt(struct device *dev)
 	ts->reset_gpio = NVTTOUCH_RST_PIN;
 #endif
 	ts->irq_gpio = NVTTOUCH_INT_PIN;
-	ts->pen_support = false;
 	return 0;
 }
 #endif
@@ -2458,35 +2094,6 @@ static void nvt_esd_check_func(struct work_struct *work)
 }
 #endif /* #if NVT_TOUCH_ESD_PROTECT */
 
-#define PEN_DATA_LEN 14
-#if CHECK_PEN_DATA_CHECKSUM
-static int32_t nvt_ts_pen_data_checksum(uint8_t *buf, uint8_t length)
-{
-	uint8_t checksum = 0;
-	int32_t i = 0;
-
-	// Calculate checksum
-	for (i = 0; i < length - 1; i++) {
-		checksum += buf[i];
-	}
-	checksum = (~checksum + 1);
-
-	// Compare ckecksum and dump fail data
-	if (checksum != buf[length - 1]) {
-		NVT_ERR("pen packet checksum not match. (buf[%d]=0x%02X, checksum=0x%02X)\n",
-			length - 1, buf[length - 1], checksum);
-		//--- dump pen buf ---
-		for (i = 0; i < length; i++) {
-			printk("%02X ", buf[i]);
-		}
-		printk("\n");
-
-		return -1;
-	}
-
-	return 0;
-}
-#endif // #if CHECK_PEN_DATA_CHECKSUM
 
 #if NVT_TOUCH_WDT_RECOVERY
 static uint8_t recovery_cnt = 0;
@@ -2784,494 +2391,7 @@ uint16_t hand_data_tmp_offset = 0;
 //thp end 6.8
 
 #define NVT_CRC_DATA_ENABLE 0
-#define NVT_PARSE_DATA_ENABLE 0
 
-#if NVT_PARSE_DATA_ENABLE
-static void nvt_ts_prase_data_func(void *data)
-{
-	int32_t ret = -1;
-	uint8_t *point_data;
-	uint8_t input_id = 0;
-	uint8_t pen_format_id;
-	uint8_t *frame_data_packet;
-	uint16_t head_count;
-	uint8_t scan_saturation_state;
-	uint8_t scan_mode;
-	uint16_t frame_no;
-	uint16_t drop_frame_no;
-	uint16_t noise_r0;
-	uint16_t noise_r1;
-	uint16_t noise_r2;
-	uint16_t noise_r3;
-	uint8_t numCol;
-	uint8_t numRow;
-	uint16_t ic_ms_time;
-	uint16_t scan_rate;
-	uint8_t scan_freq_index;
-	uint8_t write_cmd_cnt;
-	uint8_t frame_data_type;
-	uint16_t write_cmd;
-	uint8_t *frame_data;
-	// pen
-	uint16_t pen_drop_frame_no;
-	uint16_t pen_frame_no;
-	uint8_t pen_numCol1;
-	uint8_t pen_numRow1;
-	uint8_t pen_numCol2;
-	uint8_t pen_numRow2;
-	uint8_t hand_data_packet_no;
-	uint16_t hand_data_packet_len;
-	uint8_t pen_hover_status;
-	uint16_t pen_scan_rate;
-	uint16_t pen_scan_freq;
-	uint16_t pen_noise_r0;
-	uint16_t pen_noise_r1;
-	uint32_t pen_pressure;
-	uint32_t pen_btn1;
-	uint32_t pen_btn2;
-	uint32_t pen_battery;
-#if FRAME_DATA_PACKET_DEBUG_PRINT
-	uint8_t *pen_data;
-	uint16_t offset;
-	uint8_t *hand_data;
-#endif /* #if FRAME_DATA_PACKET_DEBUG_PRINT */
-#if NVT_CRC_DATA_ENABLE
-	uint16_t checksum;
-	uint16_t checksum_bar;
-	uint16_t checksum_cal;
-	bool checksum_correct;
-	int32_t crc_len;
-	int32_t crc_len_bar;
-	int32_t crc;
-	int32_t crc_cal;
-	uint16_t checksum2;
-	uint16_t checksum2_bar;
-	uint16_t checksum2_cal;
-	bool checksum2_correct;
-	int32_t crc2_len;
-	int32_t crc2_len_bar;
-	int32_t crc2;
-	int32_t crc2_cal;
-#endif //NVT_CRC_DATA_ENABLE
-
-	frame_data_packet = data;
-#if NVT_CRC_DATA_ENABLE
-	checksum = *((uint16_t *)(frame_data_packet + 4));
-	crc_len = *((int32_t *)(frame_data_packet + 8));
-	checksum_bar = *((uint16_t *)(frame_data_packet + 12));
-	crc_len_bar = *((int32_t *)(frame_data_packet + 16));
-	checksum_cal = nvt_xm_htc_cal_checksum(
-		(uint16_t *)(frame_data_packet + 20), crc_len * 4 / 2);
-	checksum_correct = true;
-	if ((checksum_bar != ((uint16_t)(~checksum))) ||
-	    (crc_len_bar != ~crc_len) || (checksum_cal != checksum)) {
-		printk("nvt-ts:     checksum wrong(checksum=0x%04X, crc_len=0x%08X, checksum_bar=0x%04X, ~crc_len=0x%08X, checksum_cal=0x%04X)!\n",
-		       checksum, crc_len, checksum_bar, crc_len_bar,
-		       checksum_cal);
-		checksum_correct = false;
-		goto XFER_ERROR;
-	}
-	printk("nvt-ts:     frame_data_type=%d, checksum=0x%04X, checksum_cal=0x%04X, checksum_bar=0x%04X, ~checksum=0x%04X",
-	       frame_data_packet[56], checksum, checksum_cal, checksum_bar,
-	       (uint16_t)(~checksum));
-#endif //NVT_CRC_DATA_ENABLE
-	head_count = *((uint16_t *)(frame_data_packet + 2));
-	scan_saturation_state = frame_data_packet[20];
-	scan_mode = frame_data_packet[24];
-	frame_no = *((uint16_t *)(frame_data_packet + 28));
-	drop_frame_no = *((uint16_t *)(frame_data_packet + 30));
-	noise_r0 = *((uint16_t *)(frame_data_packet + 32));
-	noise_r1 = *((uint16_t *)(frame_data_packet + 34));
-	noise_r2 = *((uint16_t *)(frame_data_packet + 36));
-	noise_r3 = *((uint16_t *)(frame_data_packet + 38));
-	numCol = frame_data_packet[48];
-	numRow = frame_data_packet[49];
-	ic_ms_time = *((uint16_t *)(frame_data_packet + 50));
-	scan_rate = *((uint16_t *)(frame_data_packet + 52));
-	scan_freq_index = frame_data_packet[54];
-	write_cmd_cnt = frame_data_packet[55];
-	frame_data_type = frame_data_packet[56];
-	write_cmd = *((uint16_t *)(frame_data_packet + 62));
-	frame_data = frame_data_packet + 64;
-#if FRAME_DATA_PACKET_DEBUG_PRINT
-	printk("nvt-ts:      frame_data_type=%d, head_count=%d, scan_mode=%d, frame_no=%d, drop_frame_no=%d, checksum=0x%04X, crc_len=0x%08X, checksum_bar=0x%04X, ~crc_len=0x%08X, checksum_cal=0x%04X\n",
-	       frame_data_type, head_count, scan_mode, frame_no, drop_frame_no,
-	       checksum, crc_len, checksum_bar, crc_len_bar, checksum_cal);
-	printk("nvt-ts:      noise_r0=%d, noise_r1=%d, noise_r2=%d, noise_r3=%d, ic_ms_time=%d, scan_rate=%d, scan_freq_index=%d, scan_saturation_state=0x%02X, write_cmd_cnt=%d, write_cmd=%d\n",
-	       noise_r0, noise_r1, noise_r2, noise_r3, ic_ms_time, scan_rate,
-	       scan_freq_index, scan_saturation_state, write_cmd_cnt,
-	       write_cmd);
-	debug_print_count++; // for temporarily debug print
-	print_debug_data = ((debug_print_count % 30 == 0) ||
-			    (debug_print_count % 30 == 1) ||
-			    (debug_print_count % 30 == 2) ||
-			    (debug_print_count % 30 == 3));
-	print_debug_data = ((debug_print_count % 60 == 0) ||
-			    (debug_print_count % 60 == 1) ||
-			    (debug_print_count % 60 == 2) ||
-			    (debug_print_count % 60 == 3) ||
-			    (debug_print_count % 60 == 4) ||
-			    (debug_print_count % 60 == 5));
-	print_debug_data = ((debug_print_count % 60 == 0) ||
-			    (debug_print_count % 60 == 1) ||
-			    (debug_print_count % 60 == 2) ||
-			    (debug_print_count % 60 == 3) ||
-			    (debug_print_count % 60 == 4) ||
-			    (debug_print_count % 60 == 5)) ||
-			   ((head_cnt >= 1) && (head_cnt <= 6)) ||
-			   ((frame_no >= 1) && (frame_no <= 6));
-#endif /* #if FRAME_DATA_PACKET_DEBUG_PRINT */
-	if (frame_data_type == 3) {
-#if FRAME_DATA_PACKET_DEBUG_PRINT
-		if (print_debug_data) {
-			printk("nvt-ts:     frame_no=%d, numCol x numRow = %d x %d\n",
-			       frame_no, numCol, numRow);
-			nvt_xm_htc_print_data_log_in_one_line(
-				(int16_t *)frame_data, numRow, numCol);
-		}
-#endif /* #if FRAME_DATA_PACKET_DEBUG_PRINT */
-	} else if (frame_data_type == 6 || frame_data_type == 7 ||
-		   frame_data_type == 9) {
-		pen_drop_frame_no = *((uint16_t *)frame_data);
-		pen_frame_no = *((uint16_t *)(frame_data + 2));
-		pen_pressure = *((uint16_t *)(frame_data + 4));
-		pen_btn1 = frame_data[6];
-		pen_numCol1 = frame_data[7];
-		pen_numRow1 = frame_data[8];
-		pen_numCol2 = frame_data[9];
-		pen_numRow2 = frame_data[10];
-		hand_data_packet_no = frame_data[11];
-		hand_data_packet_len = *((uint16_t *)(frame_data + 12));
-		pen_btn2 = frame_data[14];
-		pen_battery = frame_data[15];
-		pen_hover_status = frame_data[16];
-#if NVT_CRC_DATA_ENABLE
-		checksum2 = *((uint16_t *)(frame_data + 26 +
-					   (pen_numCol1 * pen_numRow1 +
-					    pen_numCol2 * pen_numRow2) *
-						   2 * 2 +
-					   4));
-		checksum2_bar = *((uint16_t *)(frame_data + 26 +
-					       (pen_numCol1 * pen_numRow1 +
-						pen_numCol2 * pen_numRow2) *
-						       2 * 2 +
-					       8));
-		crc2_len = (44 + 26 +
-			    (pen_numCol1 * pen_numRow1 +
-			     pen_numCol2 * pen_numRow2) *
-				    2 * 2 +
-			    4) /
-			   4;
-		checksum2_cal = nvt_xm_htc_cal_checksum(
-			(uint16_t *)(frame_data_packet + 20), crc2_len * 4 / 2);
-		checksum2_correct = true;
-		if ((checksum2_bar != ((uint16_t)(~checksum2))) ||
-		    (checksum2_cal != checksum2)) {
-			printk("nvt-ts:     checksum2 wrong(checksum2=0x%04X, crc2_len=0x%08X, checksum2_bar=0x%04X, checksum2_cal=0x%04X)!\n",
-			       checksum2, crc2_len, checksum2_bar,
-			       checksum2_cal);
-			checksum2_correct = false;
-			goto XFER_ERROR;
-		}
-#endif //NVT_CRC_DATA_ENABLE
-#if FRAME_DATA_PACKET_DEBUG_PRINT
-		printk("nvt-ts:     PEN: drop_frame_no=%d, frame_no=%d, pressure=%d, btn1=%d, btn2=%d, battery=%d, hover=%d. checksum2=0x%04X, crc2_len=0x%08X, checksum2_bar=0x%04X, checksum2_cal=0x%04X\n",
-		       pen_drop_frame_no, pen_frame_no, pen_pressure, pen_btn1,
-		       pen_btn2, pen_battery, pen_hover_status, checksum2,
-		       crc2_len, checksum2_bar, checksum2_cal);
-		/* pen data */
-		pen_data = frame_data + 26;
-		offset = 0;
-		if (print_debug_data) {
-			printk("nvt-ts:     Tip numCol1 x numRow1 = %d x %d\n",
-			       pen_numCol1, pen_numRow1);
-			nvt_xm_htc_print_data_log_in_one_line(
-				(int16_t *)(pen_data + offset), pen_numRow1,
-				pen_numCol1);
-		}
-		offset += (pen_numCol1 * pen_numRow1) * 2;
-		if (print_debug_data) {
-			printk("nvt-ts:     Tip numCol2 x numRow2 = %d x %d\n",
-			       pen_numCol2, pen_numRow2);
-			nvt_xm_htc_print_data_log_in_one_line(
-				(int16_t *)(pen_data + offset), pen_numRow2,
-				pen_numCol2);
-		}
-		offset += (pen_numCol2 * pen_numRow2) * 2;
-		if (print_debug_data) {
-			printk("nvt-ts:     Ring numCol1 x numRow1 = %d x %d\n",
-			       pen_numCol1, pen_numRow1);
-			nvt_xm_htc_print_data_log_in_one_line(
-				(int16_t *)(pen_data + offset), pen_numRow1,
-				pen_numCol1);
-		}
-		offset += (pen_numCol1 * pen_numRow1) * 2;
-		if (print_debug_data) {
-			printk("nvt-ts:     Ring numCol2 x numRow2 = %d x %d\n",
-			       pen_numCol2, pen_numRow2);
-			nvt_xm_htc_print_data_log_in_one_line(
-				(int16_t *)(pen_data + offset), pen_numRow2,
-				pen_numCol2);
-		}
-		if (frame_data_type == 6) {
-			/* no hand data, only pen data */
-		} else if (frame_data_type == 7) {
-			/* hand data */
-			printk("nvt-ts:     hand_data_packet_no=%d, hand_data_packet_len=%d\n",
-			       hand_data_packet_no, hand_data_packet_len);
-			hand_data = frame_data + 26 +
-				    (pen_numCol1 * pen_numRow1 +
-				     pen_numCol2 * pen_numRow2) *
-					    2 * 2 +
-				    12;
-			memset(hand_data_tmp, 0, numCol * numRow * 2);
-			memcpy(hand_data_tmp, hand_data, hand_data_packet_len);
-			if (print_debug_data) {
-				nvt_xm_htc_print_data_log_in_one_line(
-					(int16_t *)hand_data_tmp, numRow,
-					numCol);
-			}
-		} else if (frame_data_type == 9) {
-			/* 1/4 hand data */
-			printk("nvt-ts:     hand_data_packet_no=%d, hand_data_packet_len=%d\n",
-			       hand_data_packet_no, hand_data_packet_len);
-			hand_data = frame_data + 26 +
-				    (pen_numCol1 * pen_numRow1 +
-				     pen_numCol2 * pen_numRow2) *
-					    2 * 2 +
-				    12;
-			if (hand_data_packet_no == 1) {
-				memset(hand_data_tmp, 0, numCol * numRow * 2);
-			}
-			if ((hand_data_packet_no < 1) ||
-			    (hand_data_packet_no > 4)) {
-				printk("nvt-ts:     invalid hand_data_packet_no(%d)!\n",
-				       hand_data_packet_no);
-				goto XFER_ERROR;
-			}
-			hand_data_tmp_offset = (hand_data_packet_no - 1) *
-					       ((numCol * numRow * 2) / 4);
-			if ((hand_data_tmp_offset + hand_data_packet_len) >
-			    (numCol * numRow * 2)) {
-				printk("nvt-ts:     (hand_data_tmp_offset(%d) + hand_data_packet_len(%d)) > numCol(%d) * numRow(%d) * 2!\n",
-				       hand_data_tmp_offset,
-				       hand_data_packet_len, numCol, numRow);
-				memset(hand_data_tmp, 0, numCol * numRow * 2);
-				goto XFER_ERROR;
-			}
-			memcpy(hand_data_tmp + hand_data_tmp_offset, hand_data,
-			       hand_data_packet_len);
-			if (print_debug_data) {
-				nvt_xm_htc_print_data_log_in_one_line(
-					(int16_t *)hand_data_tmp, numRow,
-					numCol);
-			}
-			if (hand_data_packet_no == 4) {
-				hand_data_tmp_offset = 0;
-				memset(hand_data_tmp, 0, numCol * numRow * 2);
-			}
-		}
-#endif /* #if FRAME_DATA_PACKET_DEBUG_PRINT */
-#if NVT_CRC_DATA_ENABLE
-		if (checksum2_correct) {
-			// re-calculate crc2 using xm's original thp_crc32_check(), and put them to crc2, ~crc2, fields
-			crc2_cal = thp_crc32_check(
-				(int32_t *)(frame_data_packet + 20), crc2_len);
-			*((int32_t *)(frame_data + 26 +
-				      (pen_numCol1 * pen_numRow1 +
-				       pen_numCol2 * pen_numRow2) *
-					      2 * 2 +
-				      4)) = crc2_cal;
-			*((int32_t *)(frame_data + 26 +
-				      (pen_numCol1 * pen_numRow1 +
-				       pen_numCol2 * pen_numRow2) *
-					      2 * 2 +
-				      8)) = ~crc2_cal;
-			crc2 = crc2_cal;
-		}
-#endif //NVT_CRC_DATA_ENABLE
-	} else if (frame_data_type == 17 || frame_data_type == 29) {
-		pen_drop_frame_no = *((uint16_t *)frame_data);
-		pen_frame_no = *((uint16_t *)(frame_data + 2));
-		pen_pressure = *((uint16_t *)(frame_data + 4));
-		pen_btn1 = frame_data[6];
-		pen_numCol1 = frame_data[7];
-		pen_numRow1 = frame_data[8];
-		pen_numCol2 = frame_data[9];
-		pen_numRow2 = frame_data[10];
-		hand_data_packet_no = frame_data[11];
-		hand_data_packet_len = *((uint16_t *)(frame_data + 12));
-		pen_btn2 = frame_data[14];
-		pen_battery = frame_data[15];
-		pen_hover_status = frame_data[16];
-		pen_scan_rate = *((uint16_t *)(frame_data + 18));
-		pen_scan_freq = *((uint16_t *)(frame_data + 20));
-		pen_noise_r0 = *((uint16_t *)(frame_data + 22));
-		pen_noise_r1 = *((uint16_t *)(frame_data + 24));
-#if NVT_CRC_DATA_ENABLE
-		checksum2 = *((uint16_t *)(frame_data + 36 +
-					   (pen_numCol1 * pen_numRow1 +
-					    pen_numCol2 * pen_numRow2) *
-						   2 * 2 +
-					   4));
-		crc2_len = *((uint32_t *)(frame_data + 36 +
-					  (pen_numCol1 * pen_numRow1 +
-					   pen_numCol2 * pen_numRow2) *
-						  2 * 2 +
-					  8));
-		checksum2_bar = *((uint16_t *)(frame_data + 36 +
-					       (pen_numCol1 * pen_numRow1 +
-						pen_numCol2 * pen_numRow2) *
-						       2 * 2 +
-					       12));
-		crc2_len_bar = *((uint32_t *)(frame_data + 36 +
-					      (pen_numCol1 * pen_numRow1 +
-					       pen_numCol2 * pen_numRow2) *
-						      2 * 2 +
-					      16));
-		checksum2_cal = nvt_xm_htc_cal_checksum(
-			(uint16_t *)(frame_data_packet + 20), crc2_len * 4 / 2);
-		checksum2_correct = true;
-		if ((checksum2_bar != ((uint16_t)(~checksum2))) ||
-		    (crc2_len_bar != ~crc2_len) ||
-		    (checksum2_cal != checksum2)) {
-			printk("nvt-ts:     checksum2 wrong(checksum2=0x%04X, crc2_len=0x%08X, checksum2_bar=0x%04X, ~crc2_len=0x%08X, checksum2_cal=0x%04X)!\n",
-			       checksum2, crc2_len, checksum2_bar, crc2_len_bar,
-			       checksum2_cal);
-			checksum2_correct = false;
-			goto XFER_ERROR;
-		}
-#endif //NVT_CRC_DATA_ENABLE
-#if FRAME_DATA_PACKET_DEBUG_PRINT
-		printk("nvt-ts:     PEN: drop_frame_no=%d, frame_no=%d, pressure=%d, btn1=%d, btn2=%d, battery=%d, hover=%d. checksum2=0x%04X, crc2_len=0x%08X, checksum2_bar=0x%04X, ~crc2_len=0x%08X, checksum2_cal=0x%04X\n",
-		       pen_drop_frame_no, pen_frame_no, pen_pressure, pen_btn1,
-		       pen_btn2, pen_battery, pen_hover_status, checksum2,
-		       crc2_len, checksum2_bar, crc2_len_bar, checksum2_cal);
-		printk("nvt-ts:     PEN: pen_scan_rate=%d, pen_scan_freq=%d, pen_noise_r0=%d, pen_noise_r1=%d\n",
-		       pen_scan_rate, pen_scan_freq, pen_noise_r0,
-		       pen_noise_r1);
-		/* pen data */
-		pen_data = frame_data + 36;
-		offset = 0;
-		if (print_debug_data) {
-			printk("nvt-ts:     Tip numCol1 x numRow1 = %d x %d\n",
-			       pen_numCol1, pen_numRow1);
-			nvt_xm_htc_print_data_log_in_one_line(
-				(int16_t *)(pen_data + offset), pen_numRow1,
-				pen_numCol1);
-		}
-		offset += (pen_numCol1 * pen_numRow1) * 2;
-		if (print_debug_data) {
-			printk("nvt-ts:     Tip numCol2 x numRow2 = %d x %d\n",
-			       pen_numCol2, pen_numRow2);
-			nvt_xm_htc_print_data_log_in_one_line(
-				(int16_t *)(pen_data + offset), pen_numRow2,
-				pen_numCol2);
-		}
-		offset += (pen_numCol2 * pen_numRow2) * 2;
-		if (print_debug_data) {
-			printk("nvt-ts:     Ring numCol1 x numRow1 = %d x %d\n",
-			       pen_numCol1, pen_numRow1);
-			nvt_xm_htc_print_data_log_in_one_line(
-				(int16_t *)(pen_data + offset), pen_numRow1,
-				pen_numCol1);
-		}
-		offset += (pen_numCol1 * pen_numRow1) * 2;
-		if (print_debug_data) {
-			printk("nvt-ts:     Ring numCol2 x numRow2 = %d x %d\n",
-			       pen_numCol2, pen_numRow2);
-			nvt_xm_htc_print_data_log_in_one_line(
-				(int16_t *)(pen_data + offset), pen_numRow2,
-				pen_numCol2);
-		}
-		if (frame_data_type == 17) {
-			/* no hand data, only pen data */
-		} else if (frame_data_type == 29) {
-			/* 1/4 hand data */
-			printk("nvt-ts:     hand_data_packet_no=%d, hand_data_packet_len=%d\n",
-			       hand_data_packet_no, hand_data_packet_len);
-			hand_data = pen_data +
-				    (pen_numCol1 * pen_numRow1 +
-				     pen_numCol2 * pen_numRow2) *
-					    2 * 2 +
-				    20;
-			if (hand_data_packet_no == 1) {
-				memset(hand_data_tmp, 0, numCol * numRow * 2);
-			}
-			if ((hand_data_packet_no < 1) ||
-			    (hand_data_packet_no > 4)) {
-				printk("nvt-ts:     invalid hand_data_packet_no(%d)!\n",
-				       hand_data_packet_no);
-				goto XFER_ERROR;
-			}
-			hand_data_tmp_offset = (hand_data_packet_no - 1) *
-					       ((numCol * numRow * 2) / 4);
-			if ((hand_data_tmp_offset + hand_data_packet_len) >
-			    (numCol * numRow * 2)) {
-				printk("nvt-ts:     (hand_data_tmp_offset(%d) + hand_data_packet_len(%d)) > numCol(%d) * numRow(%d) * 2!\n",
-				       hand_data_tmp_offset,
-				       hand_data_packet_len, numCol, numRow);
-				memset(hand_data_tmp, 0, numCol * numRow * 2);
-				goto XFER_ERROR;
-			}
-			memcpy(hand_data_tmp + hand_data_tmp_offset, hand_data,
-			       hand_data_packet_len);
-			if (print_debug_data) {
-				nvt_xm_htc_print_data_log_in_one_line(
-					(int16_t *)hand_data_tmp, numRow,
-					numCol);
-			}
-			if (hand_data_packet_no == 4) {
-				hand_data_tmp_offset = 0;
-				memset(hand_data_tmp, 0, numCol * numRow * 2);
-			}
-		}
-#endif /* #if FRAME_DATA_PACKET_DEBUG_PRINT */
-#if NVT_CRC_DATA_ENABLE
-		if (checksum2_correct) {
-			// re-calculate crc2 using xm's original thp_crc32_check(), and put them to crc2, ~crc2, fields
-			crc2_cal = thp_crc32_check(
-				(int32_t *)(frame_data_packet + 20), crc2_len);
-			*((int32_t *)(frame_data + 36 +
-				      (pen_numCol1 * pen_numRow1 +
-				       pen_numCol2 * pen_numRow2) *
-					      2 * 2 +
-				      4)) = crc2_cal;
-			*((int32_t *)(frame_data + 36 +
-				      (pen_numCol1 * pen_numRow1 +
-				       pen_numCol2 * pen_numRow2) *
-					      2 * 2 +
-				      8)) = ~crc2_cal;
-			crc2 = crc2_cal;
-		}
-#endif //NVT_CRC_DATA_ENABLE
-	} else { // other frame data type
-		printk("nvt-ts:     frame_data_type = %d\n", frame_data_type);
-	}
-#if NVT_CRC_DATA_ENABLE
-	if (checksum_correct) {
-		// re-calculate crc using xm's original thp_crc32_check(), and put them to crc, ~crc fields
-		crc_cal = thp_crc32_check((int32_t *)(frame_data_packet + 20),
-					  crc_len);
-		*((int32_t *)(frame_data_packet + 4)) = crc_cal;
-		*((int32_t *)(frame_data_packet + 12)) = ~crc_cal;
-		crc = crc_cal;
-	}
-#endif //NVT_CRC_DATA_ENABLE
-#if FRAME_DATA_PACKET_DEBUG_PRINT
-	if (print_debug_data) {
-		if (frame_data_type == 3)
-			printk("nvt-ts:     crc_cal=0x%08X, crc=0x%08X\n",
-			       crc_cal, crc);
-		else if (frame_data_type == 6 || frame_data_type == 7 ||
-			 frame_data_type == 9 || frame_data_type == 17 ||
-			 frame_data_type == 29)
-			printk("nvt-ts:     crc2_cal=0x%08X, crc2=0x%08X, crc_cal=0x%08X, crc=0x%08X\n",
-			       crc2_cal, crc2, crc_cal, crc);
-	}
-#endif /* #if FRAME_DATA_PACKET_DEBUG_PRINT */
-}
-#endif //NVT_PARSE_DATA_ENABLE
 
 #define XM_HTC_DEFAULT_FINGER_PACKET_LEN 0x01FB
 #define XM_HTC_DEFAULT_STYLUS_PACKET_LEN 0x0509
@@ -3295,7 +2415,6 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 	// uint8_t point_data[POINT_DATA_LEN + PEN_DATA_LEN + 1 + DUMMY_BYTES] = {0};
 	uint8_t *point_data;
 	uint8_t input_id = 0;
-	uint8_t pen_format_id;
 
 #if TOUCH_THP_SUPPORT
 	uint16_t protocol_type;
@@ -3386,10 +2505,6 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 		}
 		input_id = (uint8_t)(point_data[1] >> 3);
 		nvt_ts_wakeup_gesture_report(input_id, point_data);
-		if (ts->pen_support) {
-			pen_format_id = point_data[66];
-			nvt_ts_pen_gesture_report(pen_format_id);
-		}
 		goto XFER_ERROR;
 	}
 #endif
@@ -3446,9 +2561,6 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 	tp_frame->fod_trackingId = 0;
 	tp_frame->frame_cnt = thp_cnt++;
 	notify_raw_data_update(0);
-#if NVT_PARSE_DATA_ENABLE
-	nvt_ts_prase_data_func(frame_data_packet)
-#endif //NVT_PARSE_DATA_ENABLE
 		// ToDo: memcpy(xm_htc_frame_data_buf, frame_data_packet, sizeof(struct xm_htc_frame_data));
 
 		//thp end 6.8
@@ -3629,73 +2741,6 @@ static int32_t nvt_ts_check_chip_ver_trim_loop(void)
 	return ret;
 }
 
-/* MIPP Start */
-
-static int32_t nvt_set_pen_hopping_ack(void)
-{
-	uint8_t buf[8] = { 0 };
-	int32_t ret = 0;
-	int32_t i = 0;
-	int32_t retry = 5;
-
-	if (ts->xm_htc_sw_reset) {
-		NVT_ERR("ts->xm_htc_sw_reset=%d\n", ts->xm_htc_sw_reset);
-		return -EBUSY;
-	}
-
-	if (ts->nvt_tool_in_use) {
-		NVT_ERR("NVT tool in use.\n");
-		return -EBUSY;
-	}
-
-	NVT_LOG("++\n");
-
-#if NVT_TOUCH_ESD_PROTECT
-	nvt_esd_check_enable(false);
-#endif /* #if NVT_TOUCH_ESD_PROTECT */
-
-	//---set xdata index to EVENT BUF ADDR---
-	ret = nvt_set_page(ts->mmap->EVENT_BUF_ADDR | EVENT_MAP_HOST_CMD);
-	if (ret < 0) {
-		NVT_ERR("Set event buffer index fail!\n");
-		goto out;
-	}
-
-	for (i = 0; i < retry; i++) {
-		buf[0] = EVENT_MAP_HOST_CMD;
-		buf[1] = 0x7C;
-
-		ret = CTP_SPI_WRITE(ts->client, buf, 2);
-		if (ret < 0) {
-			NVT_ERR("spi write fail!\n");
-			goto out;
-		}
-
-		usleep_range(20000, 20000);
-
-		buf[0] = EVENT_MAP_HOST_CMD;
-		buf[1] = 0xFF;
-		CTP_SPI_READ(ts->client, buf, 2);
-		if (buf[1] == 0x00)
-			break;
-	}
-
-	if (unlikely(i >= retry)) {
-		NVT_ERR("send cmd failed, buf[1] = 0x%02X\n", buf[1]);
-		ret = -1;
-		nvt_read_fw_history_all();
-		nvt_read_print_fw_flow_debug_message();
-	} else {
-		NVT_LOG("send cmd success, tried %d times\n", i);
-		ret = 0;
-	}
-
-out:
-	NVT_LOG("--\n");
-	return ret;
-}
-
-/* MIPP End */
 
 //thp start 6.8
 int nvt_enable_touch_raw(int en)
@@ -3799,12 +2844,6 @@ static void nvt_init_touchmode_data(void)
 	touch_mode[Touch_Resist_RF][SET_CUR_VALUE] = 0;
 	touch_mode[Touch_Resist_RF][GET_CUR_VALUE] = 0;
 
-	/* Touch_Stylus_Enable */
-	touch_mode[Touch_Stylus_Enable][GET_MAX_VALUE] = 0x18;
-	touch_mode[Touch_Stylus_Enable][GET_MIN_VALUE] = -1;
-	touch_mode[Touch_Stylus_Enable][GET_DEF_VALUE] = 0;
-	touch_mode[Touch_Stylus_Enable][SET_CUR_VALUE] = 0;
-	touch_mode[Touch_Stylus_Enable][GET_CUR_VALUE] = 0;
 
 	/* Touch_Doubletap_Mode */
 	touch_mode[Touch_Doubletap_Mode][GET_MAX_VALUE] = 1;
@@ -3813,33 +2852,9 @@ static void nvt_init_touchmode_data(void)
 	touch_mode[Touch_Doubletap_Mode][SET_CUR_VALUE] = 0;
 	touch_mode[Touch_Doubletap_Mode][GET_CUR_VALUE] = 0;
 
-	/* Touch_Stylus_Hopping_Mode */
-	touch_mode[Touch_Stylus_Hopping_Mode][GET_MAX_VALUE] = 0xFFFF;
-	touch_mode[Touch_Stylus_Hopping_Mode][GET_MIN_VALUE] = 1;
-	touch_mode[Touch_Stylus_Hopping_Mode][GET_DEF_VALUE] = 0;
-	touch_mode[Touch_Stylus_Hopping_Mode][SET_CUR_VALUE] = 0;
-	touch_mode[Touch_Stylus_Hopping_Mode][GET_CUR_VALUE] = 0;
 
-	/* Touch_Stylus_Quick_Note_Mode */
-	touch_mode[Touch_Stylus_Quick_Note_Mode][GET_MAX_VALUE] = 1;
-	touch_mode[Touch_Stylus_Quick_Note_Mode][GET_MIN_VALUE] = 0;
-	touch_mode[Touch_Stylus_Quick_Note_Mode][GET_DEF_VALUE] = 0;
-	touch_mode[Touch_Stylus_Quick_Note_Mode][SET_CUR_VALUE] = 0;
-	touch_mode[Touch_Stylus_Quick_Note_Mode][GET_CUR_VALUE] = 0;
 
-	/* Touch_Stylus_Gamemode_Enable */
-	touch_mode[Touch_Stylus_Gamemode_Enable][GET_MAX_VALUE] = 1;
-	touch_mode[Touch_Stylus_Gamemode_Enable][GET_MIN_VALUE] = 0;
-	touch_mode[Touch_Stylus_Gamemode_Enable][GET_DEF_VALUE] = 0;
-	touch_mode[Touch_Stylus_Gamemode_Enable][SET_CUR_VALUE] = 0;
-	touch_mode[Touch_Stylus_Gamemode_Enable][GET_CUR_VALUE] = 0;
 
-	/* Touch_Stylus_Sleep_Status */
-	touch_mode[Touch_Stylus_Sleep_Status][GET_MAX_VALUE] = 1;
-	touch_mode[Touch_Stylus_Sleep_Status][GET_MIN_VALUE] = 0;
-	touch_mode[Touch_Stylus_Sleep_Status][GET_DEF_VALUE] = 0;
-	touch_mode[Touch_Stylus_Sleep_Status][SET_CUR_VALUE] = 0;
-	touch_mode[Touch_Stylus_Sleep_Status][GET_CUR_VALUE] = 0;
 
 	for (i = 0; i < Touch_Mode_NUM; i++) {
 		NVT_LOG("mode:%d, set cur:%d, get cur:%d, def:%d min:%d max:%d\n",
@@ -3876,7 +2891,6 @@ static int nvt_enable_gesture_mode(int value)
 {
 	int32_t ret = 0;
 	uint8_t doubletap_enable = 0;
-	uint8_t pen_shorthand_enable = 0;
 	uint8_t singletap_enable = 0;
 	uint8_t buf[4] = { 0 };
 
@@ -3893,11 +2907,9 @@ static int nvt_enable_gesture_mode(int value)
 			NVT_ERR("set cmd failed!\n");
 		}
 		doubletap_enable = ts->gesture_command & 0x01;
-		pen_shorthand_enable = ts->gesture_command & 0x02;
 		singletap_enable = ts->gesture_command & 0x04;
-		NVT_LOG("Gesture mode on, %s doubletap gesture, %s pen shorthand gesture, %s singletap gesture\n",
+		NVT_LOG("Gesture mode on, %s doubletap gesture, %s singletap gesture\n",
 			doubletap_enable ? "Enable" : "Disable",
-			pen_shorthand_enable ? "Enable" : "Disable",
 			singletap_enable ? "Enable" : "Disable");
 	} else {
 		/*---write command to enter "deep sleep mode"---*/
@@ -3981,109 +2993,6 @@ static int nvt_enable_thp_selfcap_scan(int en)
 
 //thp end 6.8
 
-/**
- *  stylus enable mode ture table:
- *  bluetooth_connect|charge_connect   |whitelist_game   |gamemode_enable  |enable
- *  0                |0/1              |0/1              |0/1              |0
- *  1                |1                |0/1              |0/1              |0
- *  1                |0                |1                |0/1              |1
- *  1                |0                |0                |1                |0
- *  1                |0                |0                |0                |1
- */
-int update_pen_status(bool enforce_send_cmd)
-{
-	int32_t ret = 0;
-	int enable = 0;
-	int enable_stylus_in_gamemode = 0;
-	static int enable_last_time = -1;
-
-	NVT_LOG("++, enforce_send_cmd:%d, bluetooth:%d, charge:%d, gamemode:%d, game_in_whitelist:%d, enable_last_time:%d\n",
-		enforce_send_cmd, ts->pen_bluetooth_connect,
-		ts->pen_charge_connect, ts->gamemode_enable,
-		ts->game_in_whitelist, enable_last_time);
-
-	mutex_lock(&ts->pen_switch_lock);
-	if (!bTouchIsAwake || !ts) {
-		NVT_LOG("touch suspend, stop switch");
-		goto nvt_set_pen_enable_out;
-	}
-
-#ifdef CONFIG_FACTORY_BUILD
-	/* pen_bluetooth_connect enable by default */
-	ts->pen_bluetooth_connect = 1;
-	NVT_LOG("This is factory mode, set pen_bluetooth_connect as 1");
-#endif // CONFIG_FACTORY_BUILD
-	enable_stylus_in_gamemode = ts->game_in_whitelist ? 1 :
-				    ts->gamemode_enable	  ? 0 :
-							    1;
-	enable = (ts->pen_bluetooth_connect) &&
-		 (!(ts->pen_charge_connect) && enable_stylus_in_gamemode);
-	if (enable_last_time == enable) {
-		if (!enforce_send_cmd) {
-			goto nvt_set_pen_enable_out;
-		}
-	}
-
-	ret = nvt_xm_htc_set_stylus_enable(!!enable);
-	if (ret < 0) {
-		NVT_ERR("nvt_xm_htc_set_stylus_enable fail! ret=%d\n", ret);
-		goto nvt_set_pen_enable_out;
-	}
-
-#ifdef TOUCH_STYLUS_SUPPORT
-	/* notify surfaceflinger */
-	if (enforce_send_cmd && (enable_last_time == enable)) {
-		/* skip notify surfaceflinger */
-		NVT_LOG("enable_last_time = %d, enable = %d, enforce_send_cmd = %d, skip notify surfaceflinger",
-			enable_last_time, enable, enforce_send_cmd);
-		goto nvt_set_pen_enable_out;
-	}
-	update_stylus_connect_status_value(!!enable);
-#endif
-
-#if TOUCH_THP_SUPPORT
-	add_common_data_to_buf(0, SET_CUR_VALUE, THP_HAL_STYLUS_ACTIVE, 1, &enable);
-#endif
-
-	enable_last_time = enable;
-
-nvt_set_pen_enable_out:
-#ifdef CONFIG_FACTORY_BUILD
-	ret = nvt_set_pen_switch(SUPPORT_M80P);
-#else
-	if (enable)
-		ret = nvt_set_pen_switch(ts->pen_switch);
-#endif
-	if (ret < 0) {
-		NVT_ERR("nvt_set_pen_switch fail! ret=%d\n", ret);
-	}
-	mutex_unlock(&ts->pen_switch_lock);
-	NVT_LOG("--\n");
-
-	return ret;
-}
-
-void report_release_pen_event(struct input_dev *dev)
-{
-	input_report_abs(dev, ABS_X, 0);
-	input_report_abs(dev, ABS_Y, 0);
-	input_report_abs(dev, ABS_PRESSURE, 0);
-	input_report_abs(dev, ABS_TILT_X, 0);
-	input_report_abs(dev, ABS_TILT_Y, 0);
-	input_report_abs(dev, ABS_DISTANCE, 0);
-	input_report_key(dev, BTN_TOUCH, 0);
-	input_report_key(dev, BTN_TOOL_PEN, 0);
-	input_sync(dev);
-}
-
-static void release_pen_event(void)
-{
-	if (ts && ts->pen_input_dev_m80p && ts->pen_input_dev_p81c) {
-		report_release_pen_event(ts->pen_input_dev_m80p);
-		report_release_pen_event(ts->pen_input_dev_p81c);
-	}
-}
-
 void nvt_fw_reload_recovery(void)
 {
 	int i = 0;
@@ -4107,11 +3016,6 @@ void nvt_fw_reload_recovery(void)
 #endif
 		input_sync(ts->input_dev);
 	}
-	/* release pen event */
-	release_pen_event();
-	/* reload fw should update_pen_status again */
-	if (ts->pen_support)
-		update_pen_status(true);
 	/* reload fw should setup power_supply mode again */
 	ts->is_usb_exist = -1;
 	queue_work(ts->event_wq, &ts->power_supply_work);
@@ -4142,11 +3046,6 @@ static void nvt_ic_switch_mode(u8 gesture_type)
 	int gesture_command = 0;
 	if (gesture_type & GESTURE_DOUBLETAP_EVENT)
 		gesture_command |= 0x01;
-	if ((gesture_type & GESTURE_STYLUS_SINGLETAP_EVENT) &&
-	    ts->pen_bluetooth_connect)
-		gesture_command |= 0x02;
-	if (gesture_type & GESTURE_PAD_SINGLETAP_EVENT)
-		gesture_command |= 0x04;
 	nvt_set_gesture_mode(gesture_command);
 }
 
@@ -4187,147 +3086,10 @@ static void nvt_set_cur_value(int mode, int *value)
 			ts->gamemode_enable = 1;
 		} else if (nvt_value == 0) {
 			ts->gamemode_enable = 0;
-			NVT_LOG("exit game mode, stylus game_in_whitelist changed from %d to %d ",
-				ts->game_in_whitelist,
-				ts->game_in_whitelist_bak);
-			ts->game_in_whitelist = ts->game_in_whitelist_bak;
-		}
-		if (ts->pen_support) {
-			mutex_lock(&ts->lock);
-			update_pen_status(false);
-			mutex_unlock(&ts->lock);
 		}
 		return;
 	}
 
-	if (nvt_mode == Touch_Stylus_Enable && ts) {
-		/* cover system server crash */
-		if (nvt_value == -1) {
-			ts->pen_count = 0;
-			release_pen_event();
-			return;
-		}
-
-		if (!!(nvt_value >> 4)) {
-			/* connect logic */
-			if ((nvt_value & 0x0F) == 3) {
-				ts->pen_count++;
-				ts->cur_pen = PEN_M80P;
-				ts->pen_switch = SUPPORT_M80P;
-				NVT_LOG("Xiaomi stylus m80p");
-			} else if ((nvt_value & 0x0F) == 1 ||
-				   (nvt_value & 0x0F) == 2) {
-				ts->pen_shield_flag = 1; //shield K81P/M81P
-				NVT_LOG("Xiaomi stylus Generation one connect, sheild pen connection");
-			} else if ((nvt_value & 0x0F) == 8) { //P81C
-				ts->pen_count++;
-				ts->cur_pen = PEN_P81C;
-				ts->pen_switch = SUPPORT_P81C;
-				NVT_LOG("Xiaomi stylus p81c");
-			}
-		} else {
-			/* disconnect logic */
-			if ((nvt_value & 0x0F) == 3) {
-				ts->pen_count--;
-				NVT_LOG("disconnect m80p");
-			} else if ((nvt_value & 0x0F) == 1 ||
-				   (nvt_value & 0x0F) == 2) {
-				ts->pen_shield_flag = 0; //open it
-				NVT_LOG("Xiaomi stylus Generation one disconnect, open pen connection");
-			}
-			if ((nvt_value & 0x0F) == 8) {
-				ts->pen_count--;
-				NVT_LOG("disconnect p81c");
-			}
-		}
-
-		if (ts->pen_shield_flag) {
-			/* sheild pen connection */
-			ts->pen_bluetooth_connect = 0;
-		} else {
-			if (!!ts->pen_count) {
-				/* M80P connect num >= 1 */
-				ts->pen_bluetooth_connect = 1;
-			} else {
-				/* M80P connect num = 0 */
-				ts->pen_bluetooth_connect = 0;
-			}
-		}
-		NVT_LOG("nvt_value is 0x%02X, pen status is %s, pen id is %d, pen_bluetooth_connect is %d, pen_count is %d",
-			nvt_value, (nvt_value >> 4) ? "connect" : "disconnect",
-			nvt_value & 0x0F, ts->pen_bluetooth_connect,
-			ts->pen_count);
-		nvt_set_gesture_mode(
-			(ts->pen_bluetooth_connect &&
-			 driver_get_touch_mode(TOUCH_ID, Touch_Stylus_Quick_Note_Mode)) ?
-				(ts->gesture_command | 0x02) :
-				(ts->gesture_command & 0xFD));
-		if (ts->pen_support) {
-			mutex_lock(&ts->lock);
-			update_pen_status(false);
-			mutex_unlock(&ts->lock);
-		}
-		release_pen_event();
-		return;
-	}
-	if (nvt_mode == Touch_Stylus_Sleep_Status && ts) {
-		ts->pen_static_status = nvt_value;
-		NVT_LOG("ts->pen_static_status:%d", ts->pen_static_status);
-		if (bTouchIsAwake) {
-			mutex_lock(&ts->lock);
-			nvt_set_active_pen_stationary(ts->pen_static_status);
-			mutex_unlock(&ts->lock);
-		}
-		return;
-	}
-	/* MIPP Start */
-	if (nvt_mode == Touch_Stylus_Hopping_Mode && ts && nvt_value >= 0) {
-		if (ts->pen_bluetooth_connect == 0) {
-			NVT_LOG("MIPP stylus is disconnect, skip hopping frequency");
-			return;
-		}
-
-		NVT_LOG("MIPP stylus hopping mode received: %d", nvt_value);
-		if ((nvt_value & 0xFF) == MIPP_PEN_FREQUENCY) {
-			if (ts->need_send_hopping_ack) {
-				mutex_lock(&ts->lock);
-				nvt_set_pen_hopping_ack();
-				mutex_unlock(&ts->lock);
-			}
-		} else if ((nvt_value & 0xFF) == MIPP_PEN_VOLTAGE) {
-			NVT_LOG("MIPP stylus voltage has mofified");
-		} else if ((nvt_value & 0xFF) >= MIPP_BOTH_HOPPING_OFFSET &&
-			   (nvt_value & 0xFF) < MIPP_PEN_HOPPING_OFFSET) {
-			ts->need_send_hopping_ack = true;
-			nvt_pen_hopping_frequency(
-				0,
-				(nvt_value & 0xFF) - MIPP_BOTH_HOPPING_OFFSET);
-		} else if ((nvt_value & 0xFF) >= MIPP_PEN_HOPPING_OFFSET &&
-			   (nvt_value & 0xFF) < MIPP_PEN_FREQUENCY) {
-			ts->need_send_hopping_ack = false;
-			nvt_pen_hopping_frequency(
-				0,
-				(nvt_value & 0xFF) - MIPP_PEN_HOPPING_OFFSET);
-		} else {
-			NVT_LOG("MIPP stylus id update %d",
-				(nvt_value >> 8) & 0xFF);
-		}
-		return;
-	}
-	/* MIPP End */
-
-	if (nvt_mode == DATA_MODE_176) {
-		NVT_LOG("DATA_MODE_176 %d", nvt_value);
-		nvt_pen_AG_update(0, nvt_value);
-		return;
-	}
-
-	if (nvt_mode == DATA_MODE_177) {
-		// move: 1, disable stylus button; hover/up: 0，enable stylus button
-		NVT_LOG("MIPP stylus report status update %d", nvt_value);
-		nvt_pen_report_status_update(0, nvt_value);
-		return;
-	}
 
 	if (nvt_mode == Touch_Expert_Mode) {
 		NVT_LOG("This is Expert Mode, mode is %d", nvt_value);
@@ -4341,29 +3103,6 @@ static void nvt_set_cur_value(int mode, int *value)
 			ts->gamemode_config[nvt_value - 1][3];
 		touch_mode[Touch_Edge_Filter][SET_CUR_VALUE] =
 			ts->gamemode_config[nvt_value - 1][4];
-	}
-
-	if (nvt_mode == Touch_Stylus_Gamemode_Enable) {
-		ts->game_in_whitelist_bak = !!nvt_value;
-		NVT_LOG("MIPP stylus update game_in_whitelist_bak: %d ",
-			ts->game_in_whitelist_bak);
-		if (ts->gamemode_enable && !nvt_value) {
-			return;
-		}
-
-		if (ts->game_in_whitelist != ts->game_in_whitelist_bak) {
-			NVT_LOG("stylus game_in_whitelist changed from %d to %d ",
-				ts->game_in_whitelist,
-				ts->game_in_whitelist_bak);
-			ts->game_in_whitelist = ts->game_in_whitelist_bak;
-			if (ts->pen_support) {
-				mutex_lock(&ts->lock);
-				update_pen_status(false);
-				mutex_unlock(&ts->lock);
-			}
-		}
-
-		return;
 	}
 
 #ifdef TOUCH_THP_SUPPORT
@@ -4387,10 +3126,6 @@ static void nvt_set_cur_value(int mode, int *value)
 		if (ts->enable_touch_raw && ts->ic_state >= NVT_IC_RESUME_OUT) {
 			mutex_lock(&ts->lock);
 			if (ts->ts_probe_start) {
-				//disable_pen_input_device(ts->pen_input_dev_enable);
-				if (ts->pen_support)
-					update_pen_status(
-						ts->pen_bluetooth_connect);
 				ts->ts_probe_start = false;
 			}
 			switch (nvt_value) {
@@ -4424,14 +3159,6 @@ static void nvt_set_cur_value(int mode, int *value)
 		return;
 	}
 
-	if (nvt_mode == SET_STYLUS_PRESSURE && nvt_value >= 0) {
-		if (bTouchIsAwake) {
-			mutex_lock(&ts->lock);
-			nvt_xm_htc_set_stylus_pressure(nvt_value);
-			mutex_unlock(&ts->lock);
-		}
-		return;
-	}
 
 	if (nvt_mode == THP_SELF_CAP_SCAN && nvt_value >= 0) {
 		if (ts->enable_touch_raw)
@@ -4459,26 +3186,6 @@ static void nvt_set_cur_value(int mode, int *value)
 #endif
 
 	return;
-}
-
-static int nvt_pen_charge_state_notifier_callback(struct notifier_block *self,
-						  unsigned long event,
-						  void *data)
-{
-	ts->pen_charge_connect = !!event;
-	NVT_LOG("pen_charge_connect is %d", ts->pen_charge_connect);
-	release_pen_event();
-	schedule_work(&ts->pen_charge_state_change_work);
-	return 0;
-}
-
-static void nvt_pen_charge_state_change_work(struct work_struct *work)
-{
-	if (ts->pen_support) {
-		mutex_lock(&ts->lock);
-		update_pen_status(false);
-		mutex_unlock(&ts->lock);
-	}
 }
 
 static void nvt_set_charge_state(int state)
@@ -4886,50 +3593,12 @@ static int tpdbg_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t pen_hopping_write(struct file *file, const char __user *buf,
-				 size_t count, loff_t *pos)
-{
-	int retval = -1;
-	int8_t cmd[4] = { 0 };
-	uint8_t pen_id = 0x01;
-	uint8_t pen_hopping_frequency = 0x03;
-
-	if (copy_from_user(cmd, buf, min(sizeof(cmd), count))) {
-		retval = -EFAULT;
-		goto out;
-	}
-
-	/*pen_id: 0x00, 0x01 0x02, 0x03*/
-	if (cmd[0] >= '1' && cmd[0] <= '4') {
-		pen_id = cmd[0] - '1';
-	}
-
-	/*pen_hopping_frequency: 0x00, 0x01 0x02, 0x03*/
-	if (cmd[1] >= '1' && cmd[1] <= '4') {
-		pen_hopping_frequency = cmd[1] - '1';
-	}
-
-	ts->need_send_hopping_ack = false;
-	nvt_pen_hopping_frequency(pen_id, pen_hopping_frequency);
-	NVT_LOG("MIPP send pen_id:%x, pen_hopping_frequency:%x", pen_id,
-		pen_hopping_frequency);
-	retval = count;
-
-out:
-	return retval;
-}
-
 static const struct file_operations tpdbg_ops = {
 	.owner = THIS_MODULE,
 	.open = tpdbg_open,
 	.read = tpdbg_read,
 	.write = tpdbg_write,
 	.release = tpdbg_release,
-};
-
-static const struct file_operations pen_hopping_frequency_ops = {
-	.owner = THIS_MODULE,
-	.write = pen_hopping_write,
 };
 
 static void nvt_resume_work(struct work_struct *work)
@@ -5050,11 +3719,6 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 	ts->frame_len = XM_HTC_DEFAULT_FRAME_LEN;
 #endif
 
-	/* MIPP Start */
-#if !TOUCH_THP_SUPPORT
-	ts->pen_pdata = NULL;
-#endif
-	/* MIPP End */
 	ts->client = client;
 	spi_set_drvdata(client, ts);
 
@@ -5235,128 +3899,7 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 		goto err_input_register_device_failed;
 	}
 
-	/* MIPP Start */
-#if !TOUCH_THP_SUPPORT
-	ret = nvt_pen_device_register(ts);
-	if (ret < 0) {
-		NVT_ERR("register pen device failed. ret=%d\n", ret);
-		goto err_pen_register_device_failed;
-	}
-#endif
-	/* MIPP End */
 
-	if (ts->pen_support) {
-		//---allocate pen input device--- m80p
-		ts->pen_input_dev_m80p = input_allocate_device();
-		if (ts->pen_input_dev_m80p == NULL) {
-			NVT_ERR("allocate pen input device failed\n");
-			ret = -ENOMEM;
-			goto err_pen_input_dev_alloc_failed;
-		}
-
-		//---set pen input device info.---
-		ts->pen_input_dev_m80p->evbit[0] =
-			BIT_MASK(EV_SYN) | BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
-		ts->pen_input_dev_m80p->keybit[BIT_WORD(BTN_TOUCH)] =
-			BIT_MASK(BTN_TOUCH);
-		ts->pen_input_dev_m80p->keybit[BIT_WORD(BTN_TOOL_PEN)] |=
-			BIT_MASK(BTN_TOOL_PEN);
-		//ts->pen_input_dev_m80p->keybit[BIT_WORD(BTN_TOOL_RUBBER)] |= BIT_MASK(BTN_TOOL_RUBBER);
-		ts->pen_input_dev_m80p->propbit[0] = BIT(INPUT_PROP_DIRECT);
-
-		input_set_abs_params(
-			ts->pen_input_dev_m80p, ABS_X, 0,
-			PEN_MAX_WIDTH * SUPER_RESOLUTION_FACOTR - 1, 0, 0);
-		input_set_abs_params(
-			ts->pen_input_dev_m80p, ABS_Y, 0,
-			PEN_MAX_HEIGHT * SUPER_RESOLUTION_FACOTR - 1, 0, 0);
-		input_set_abs_params(ts->pen_input_dev_m80p, ABS_PRESSURE, 0,
-				     PEN_M80P_PRESSURE_MAX, 0, 0);
-		input_set_abs_params(ts->pen_input_dev_m80p, ABS_DISTANCE, 0,
-				     PEN_DISTANCE_MAX, 0, 0);
-		input_set_abs_params(ts->pen_input_dev_m80p, ABS_TILT_X,
-				     PEN_TILT_MIN, PEN_TILT_MAX, 0, 0);
-		input_set_abs_params(ts->pen_input_dev_m80p, ABS_TILT_Y,
-				     PEN_TILT_MIN, PEN_TILT_MAX, 0, 0);
-
-#if WAKEUP_GESTURE
-		input_set_capability(ts->pen_input_dev_m80p, EV_KEY,
-				     KEY_WAKEUP);
-#endif
-
-		sprintf(ts->pen_phys, "input/pen");
-		ts->pen_input_dev_m80p->name = NVT_M80P_PEN_NAME;
-		ts->pen_input_dev_m80p->phys = ts->pen_phys;
-		ts->pen_input_dev_m80p->id.bustype = BUS_SPI;
-		//---improve evdev buffer size to 1024---
-		ts->pen_input_dev_m80p->hint_events_per_packet = 128;
-
-		//---register pen input device---
-		ret = input_register_device(ts->pen_input_dev_m80p);
-		if (ret) {
-			NVT_ERR("register pen input device (%s) failed. ret=%d\n",
-				ts->pen_input_dev_m80p->name, ret);
-			goto err_pen_input_register_device_failed;
-		}
-
-		//---allocate pen input device--- p81c
-		ts->pen_input_dev_p81c = input_allocate_device();
-		if (ts->pen_input_dev_p81c == NULL) {
-			NVT_ERR("allocate pen input device failed\n");
-			ret = -ENOMEM;
-			goto err_pen_input_dev_alloc_failed;
-		}
-
-		//---set pen input device info.---
-		ts->pen_input_dev_p81c->evbit[0] =
-			BIT_MASK(EV_SYN) | BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
-		ts->pen_input_dev_p81c->keybit[BIT_WORD(BTN_TOUCH)] =
-			BIT_MASK(BTN_TOUCH);
-		ts->pen_input_dev_p81c->keybit[BIT_WORD(BTN_TOOL_PEN)] |=
-			BIT_MASK(BTN_TOOL_PEN);
-		ts->pen_input_dev_p81c->keybit[BIT_WORD(BTN_JOYSTICK)] |=
-			BIT_MASK(BTN_JOYSTICK);
-		//ts->pen_input_dev_p81c->keybit[BIT_WORD(BTN_TOOL_RUBBER)] |= BIT_MASK(BTN_TOOL_RUBBER);
-		ts->pen_input_dev_p81c->propbit[0] = BIT(INPUT_PROP_DIRECT);
-
-		input_set_abs_params(
-			ts->pen_input_dev_p81c, ABS_X, 0,
-			PEN_MAX_WIDTH * SUPER_RESOLUTION_FACOTR - 1, 0, 0);
-		input_set_abs_params(
-			ts->pen_input_dev_p81c, ABS_Y, 0,
-			PEN_MAX_HEIGHT * SUPER_RESOLUTION_FACOTR - 1, 0, 0);
-		input_set_abs_params(ts->pen_input_dev_p81c, ABS_PRESSURE, 0,
-				     PEN_P81C_PRESSURE_MAX, 0, 0);
-		input_set_abs_params(ts->pen_input_dev_p81c, ABS_DISTANCE, 0,
-				     PEN_DISTANCE_MAX, 0, 0);
-		input_set_abs_params(ts->pen_input_dev_p81c, ABS_TILT_X,
-				     PEN_TILT_MIN, PEN_TILT_MAX, 0, 0);
-		input_set_abs_params(ts->pen_input_dev_p81c, ABS_TILT_Y,
-				     PEN_TILT_MIN, PEN_TILT_MAX, 0, 0);
-		input_set_abs_params(ts->pen_input_dev_p81c, ABS_BRAKE, 0, 360,
-				     0, 0);
-
-#if WAKEUP_GESTURE
-		input_set_capability(ts->pen_input_dev_p81c, EV_KEY,
-				     KEY_WAKEUP);
-#endif
-
-		sprintf(ts->pen_p81c_phys, "input/pen_p81c");
-		ts->pen_input_dev_p81c->name = NVT_P81C_PEN_NAME;
-		ts->pen_input_dev_p81c->phys = ts->pen_p81c_phys;
-		ts->pen_input_dev_p81c->id.bustype = BUS_SPI;
-		//---improve evdev buffer size to 1024---
-		ts->pen_input_dev_p81c->hint_events_per_packet = 128;
-
-		//---register pen input device---
-		ret = input_register_device(ts->pen_input_dev_p81c);
-		if (ret) {
-			NVT_ERR("register pen input device (%s) failed. ret=%d\n",
-				ts->pen_input_dev_p81c->name, ret);
-			goto err_pen_input_register_device_failed;
-		}
-
-	} /* if (ts->pen_support) */
 
 	//---set int-pin & request irq---
 	client->irq = gpio_to_irq(ts->irq_gpio);
@@ -5504,30 +4047,9 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 	init_completion(&ts->dev_pm_suspend_completion);
 	ts->gesture_command_delayed = -1;
 	/* gesture mode setup end */
-	/* pen_connect_strategy setup */
-	ts->pen_bluetooth_connect = 0;
-	ts->pen_count = 0;
-	ts->pen_shield_flag = 0;
 	ts->gamemode_enable = 0;
-	ts->cur_pen = PEN_P81C;
-	ts->pen_switch = SUPPORT_P81C;
 	ts->game_in_whitelist = 0;
 	ts->game_in_whitelist_bak = 0;
-	mutex_init(&ts->pen_switch_lock);
-	INIT_WORK(
-		&ts->pen_charge_state_change_work,
-		nvt_pen_charge_state_change_work); //use system_wq (schedule_work)
-	ts->pen_charge_connect = false;
-	ts->pen_charge_state_notifier.notifier_call =
-		nvt_pen_charge_state_notifier_callback;
-	ret = pen_charge_state_notifier_register_client(
-		&ts->pen_charge_state_notifier);
-	if (ret) {
-		NVT_ERR("register pen_connect_status change notifier failed. ret=%d\n",
-			ret);
-		goto err_register_pen_charge_state_failed;
-	}
-	/* pen_connect_strategy end */
 
 	/* resume use work queue setup */
 	INIT_WORK(&ts->resume_work, nvt_resume_work);
@@ -5612,8 +4134,6 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 	if (ts->debugfs) {
 		debugfs_create_file("switch_state", 0660, ts->debugfs, ts,
 				    &tpdbg_ops);
-		debugfs_create_file("pen_hopping_frequency", 0660, ts->debugfs,
-				    ts, &pen_hopping_frequency_ops);
 	}
 #endif
 
@@ -5642,18 +4162,12 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 	return 0;
 
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
-err_register_pen_charge_state_failed:
-	if (pen_charge_state_notifier_unregister_client(
-		    &ts->pen_charge_state_notifier)) {
-		NVT_ERR("Error occurred while unregistering pen status switch state notifier.\n");
-	}
 err_alloc_work_thread_failed:
 	if (ts->event_wq) {
 		cancel_work_sync(&ts->power_supply_work);
 		destroy_workqueue(ts->event_wq);
 		ts->event_wq = NULL;
 	}
-	mutex_destroy(&ts->pen_switch_lock);
 #endif /* #if CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE */
 
 #if defined(_MSM_DRM_NOTIFY_H_)
@@ -5701,31 +4215,6 @@ err_create_nvt_fwu_wq_failed:
 #endif
 	free_irq(client->irq, ts);
 err_int_request_failed:
-	if (ts->pen_support) {
-		if (ts->pen_input_dev_m80p) {
-			input_unregister_device(ts->pen_input_dev_m80p);
-			ts->pen_input_dev_m80p = NULL;
-		}
-		if (ts->pen_input_dev_p81c) {
-			input_unregister_device(ts->pen_input_dev_p81c);
-			ts->pen_input_dev_p81c = NULL;
-		}
-	}
-err_pen_input_register_device_failed:
-	if (ts->pen_support) {
-		if (ts->pen_input_dev_m80p) {
-			input_free_device(ts->pen_input_dev_m80p);
-			ts->pen_input_dev_m80p = NULL;
-		}
-		if (ts->pen_input_dev_p81c) {
-			input_free_device(ts->pen_input_dev_p81c);
-			ts->pen_input_dev_p81c = NULL;
-		}
-	}
-err_pen_input_dev_alloc_failed:
-#if !TOUCH_THP_SUPPORT
-err_pen_register_device_failed:
-#endif
 	input_unregister_device(ts->input_dev);
 	ts->input_dev = NULL;
 err_input_register_device_failed:
@@ -5833,17 +4322,6 @@ static void nvt_ts_remove(struct spi_device *client)
 
 	nvt_gpio_deconfig(ts);
 
-	if (ts->pen_support) {
-		if (ts->pen_input_dev_m80p) {
-			input_unregister_device(ts->pen_input_dev_m80p);
-			ts->pen_input_dev_m80p = NULL;
-		}
-		if (ts->pen_input_dev_p81c) {
-			input_unregister_device(ts->pen_input_dev_p81c);
-			ts->pen_input_dev_p81c = NULL;
-		}
-	}
-
 	if (ts->input_dev) {
 		input_unregister_device(ts->input_dev);
 		ts->input_dev = NULL;
@@ -5856,26 +4334,12 @@ static void nvt_ts_remove(struct spi_device *client)
 		ts->xbuf = NULL;
 	}
 
-	/* MIPP Start */
-#if !TOUCH_THP_SUPPORT
-	if (ts->pen_pdata) {
-		nvt_pen_device_release(ts);
-		ts->pen_pdata = NULL;
-	}
-#endif
-	/* MIPP End */
-
 	if (ts) {
 		kfree(ts);
 		ts = NULL;
 	}
 
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
-	/* todo */
-	if (pen_charge_state_notifier_unregister_client(
-		    &ts->pen_charge_state_notifier)) {
-		NVT_ERR("Error occurred while unregistering pen status switch state notifier.\n");
-	}
 	// if (ts->set_touchfeature_wq)
 	// 	destroy_workqueue(ts->set_touchfeature_wq);
 	if (ts->event_wq) {
@@ -5963,12 +4427,6 @@ static int32_t nvt_ts_suspend(struct device *dev)
 #endif
 	ts->gamemode_enable =
 		0; /*suspend, gamemode to false, resume wait thp update*/
-
-	if (ts->pen_bluetooth_connect) {
-		ts->need_send_hopping_ack = false;
-		nvt_pen_hopping_frequency(0, 0);
-		NVT_LOG("MIPP reset stylus to main freq");
-	}
 
 	bTouchIsAwake = 0;
 
@@ -6066,13 +4524,6 @@ static int32_t nvt_ts_resume(struct device *dev)
 	}
 
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
-	/* resume should update_pen_status again */
-	if (ts->pen_support) {
-		mutex_lock(&ts->lock);
-		update_pen_status(true);
-		mutex_unlock(&ts->lock);
-	}
-	//add_common_data_to_buf(0, SET_CUR_VALUE, THP_ENABLE_WRITE_THP_TIME, 1, &ts->pen_static_status);
 
 	queue_work(ts->event_wq, &ts->power_supply_work);
 
