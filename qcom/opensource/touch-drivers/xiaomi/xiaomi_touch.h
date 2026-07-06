@@ -29,6 +29,9 @@
 #endif
 
 #include "xiaomi_touch_type_common.h"
+#if IS_ENABLED(CONFIG_MIEV)
+#include <miev/mievent.h>
+#endif
 
 #define XIAOMI_TOUCH_VERSION "2024.08.30-01"
 
@@ -65,20 +68,20 @@
 	(touch_id < 0 || touch_id >= MAX_TOUCH_PANEL_COUNT)
 
 enum touch_doze_analysis {
-	TOUCH_0 = 0,
-	TOUCH_1,
-	TOUCH_2,
-	TOUCH_3,
-	TOUCH_4,
-	TOUCH_5,
-	TOUCH_6,
-	TOUCH_7,
-	TOUCH_8,
-	TOUCH_9,
-	TOUCH_10,
-	TOUCH_11,
-	TOUCH_12,
-	TOUCH_13,
+	POWER_RESET = 0,
+	RELOAD_FW,
+	ENABLE_IRQ,
+	DISABLE_IRQ,
+	REGISTER_IRQ,
+	IRQ_PIN_LEVEL,
+	ENTER_SUSPEND,
+	ENTER_RESUME,
+	POWER_ON,
+	POWER_OFF,
+	SENSORHUB_NONUI_ENABLE,
+	SENSORHUB_NONUI_DISABLE,
+	SPI_GET_SYNC,
+	SPI_PUT_SYNC,
 };
 
 enum MI_TP_LOG_LEVEL {
@@ -89,6 +92,25 @@ enum MI_TP_LOG_LEVEL {
 	MI_TP_LOG_DEBUG,
 	MI_TP_LOG_VERBOSE,
 };
+
+#if IS_ENABLED(CONFIG_MIEV)
+enum touch_mievent_code {
+	TOUCH_EVENT_TRANSFER_ERR = 912001001,
+	TOUCH_EVENT_FWLOAD_ERR = 912001002,
+	TOUCH_EVENT_PARAM_ERR = 912001003,
+	TOUCH_EVENT_FROZEN_ERR = 912001005,
+	TOUCH_EVENT_OPENTEST_FAIL = 912002001,
+	TOUCH_EVENT_SHORTTEST_FAIL = 912002002,
+	TOUCH_EVENT_IC_ABNORMAL_BOOTLOADER = 912003001,
+};
+
+enum param_parse_fail_type {
+	ERROR_REGULATOR_INIT,
+	ERROR_GPIO_REQUEST,
+	ERROR_DTS_PARSE,
+};
+#endif
+
 enum charge_status {
 	NOT_CHARGING = 0,
 	CHARGING = 1,
@@ -119,6 +141,8 @@ typedef enum {
 	SYNA_IPC_SWITCH_MODE_FINISH,
 	SYNA_IPC_REPORT_TAP_EVENT,
 	SYNA_IPC_REPORT_HOLD_EVENT,
+	SYNA_IPC_SOS = 44,
+	SYNA_IPC_DEBUG = 66,
 	SYNA_IPC_MAX_NUM,
 } syna_shub_ipc_cmd_type_t;
 #endif
@@ -268,7 +292,7 @@ typedef struct hardware_operation {
 	void (*ic_switch_mode)(u8 gesture_type);
 	void (*ic_enable_irq)(bool enable);
 	void (*cmd_update_func)(long mode_update_flag,
-				int mode_value[DATA_MODE_35]);
+				int mode_value[Touch_Mode_NUM]);
 	void (*set_mode_long_value)(s32 value[], int length);
 
 	int (*palm_sensor_write)(int on);
@@ -282,6 +306,7 @@ typedef struct hardware_operation {
 	int (*touch_log_level_control)(bool value);
 	int (*touch_log_level_control_v2)(int value);
 	void (*set_nfc_to_touch_event)(u8 val);
+	void (*display_suspend_ready)(void);
 	int (*htc_ic_setModeValue)(common_data_t *common_data);
 	int (*htc_ic_getModeValue)(common_data_t *common_data);
 
@@ -292,6 +317,9 @@ typedef struct hardware_operation {
 	void (*xiaomi_touch_fod_test)(int value);
 #endif
 	int (*set_thermal_temp)(int temp, bool force);
+#if IS_ENABLED(CONFIG_MIEV)
+	void (*touch_dfs_test)(int value);
+#endif
 } hardware_operation_t;
 
 typedef struct xiaomi_touch_driver_param {
@@ -339,6 +367,10 @@ typedef struct htc_ic_polldata {
 } htc_ic_polldata_t;
 #pragma pack()
 
+#if defined(TOUCH_IS_TDDI)
+extern bool resume_skip;
+#endif
+
 /* export for other module and xiaomi_touch module */
 #ifdef TOUCH_STYLUS_SUPPORT
 int update_stylus_connect_status_value(int value);
@@ -361,14 +393,22 @@ void xiaomi_register_panel_notifier(struct device *dev, s8 touch_id,
 				    int panel_event_notifier_client);
 void xiaomi_unregister_panel_notifier(struct device *dev, s8 touch_id);
 void schedule_resume_suspend_work(s8 touch_id, bool resume_work);
-void driver_update_touch_mode(s8 touch_id, int touch_mode[DATA_MODE_35],
+#if IS_ENABLED(CONFIG_MIEV)
+void xiaomi_touch_mievent_report_int(unsigned int code, int panel_id,
+				     const char *fault_name,
+				     const char *vendor_name, long error_code);
+void xiaomi_touch_mievent_report_str(unsigned int code, int panel_id,
+				     const char *fault_name,
+				     const char *vendor_name);
+#endif
+void driver_update_touch_mode(s8 touch_id, int touch_mode[Touch_Mode_NUM],
 			      long update_mode_mask);
 u8 xiaomi_get_gesture_type(s8 touch_id);
 int driver_get_touch_mode(s8 touch_id, int mode);
 #ifdef TOUCH_SENSORHUB_SUPPORT
 void xiaomi_set_sensorhub_nonui_enable(bool status);
 bool xiaomi_get_sensorhub_nonui_enable(void);
-void xiaomi_notify_sensorhub_enable(s8 touch_id, bool status);
+void xiaomi_notify_sensorhub_enable(s8 touch_id, bool status, bool force);
 bool xiaomi_get_sensorhub_status(s8 touch_id);
 #endif
 

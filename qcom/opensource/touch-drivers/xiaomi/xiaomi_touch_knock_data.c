@@ -143,6 +143,10 @@ end_set_value:
 			knock_data.need_frame_count);
 	}
 
+	/* send frame count to thp */
+	add_common_data_to_buf(0, SET_CUR_VALUE, THP_KNOCK_FRAME_COUNT, 1,
+			       &knock_data.need_frame_count);
+
 	return count;
 }
 

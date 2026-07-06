@@ -333,6 +333,9 @@ static int xiaomi_touch_temp_thread_func(void *data)
 					    .temp_change_value) {
 				xiaomi_touch_driver_param->hardware_operation
 					.set_thermal_temp(cur_temp, false);
+				add_common_data_to_buf(0, SET_CUR_VALUE,
+						       THP_TEMPERATURE_STATUS,
+						       1, &cur_temp);
 				last_temp = cur_temp;
 			}
 
@@ -403,6 +406,45 @@ void enable_temperature_detection_func(bool is_resume)
 	wake_up_interruptible(&xiaomi_touch_data->temp_detect_wait_queue);
 }
 EXPORT_SYMBOL_GPL(enable_temperature_detection_func);
+#endif
+
+#if defined(TOUCH_PLATFORM_XRING)
+#ifdef TOUCH_SENSORHUB_SUPPORT
+struct delayed_work xiaomi_touch_ipc_work;
+static void xiaomi_touch_ipc_handler(struct work_struct *work)
+{
+	xiaomi_notify_sensorhub_enable(0, false, true);
+	return;
+}
+
+static int xiaomi_touch_ipc_callback(struct ipc_pkt *pkt, u16 tag, u8 cmd,
+				     void *arg)
+{
+	if (cmd == SYNA_IPC_SOS) {
+		LOG_WARNING("Sensorhub status abnormal, needind rescue!");
+		schedule_delayed_work(&xiaomi_touch_ipc_work,
+				      msecs_to_jiffies(0));
+	} else
+		LOG_ERROR("Unsupported ipc cmd %x\n", cmd);
+
+	return 0;
+}
+
+static void xiaomi_touch_register_ipc_notifier(void)
+{
+	struct ipc_notifier_info info;
+	info.callback = xiaomi_touch_ipc_callback;
+	info.arg = NULL;
+
+	if (sh_register_recv_notifier(IPC_VC_AO_NS_SH_AP_TP,
+				      TAG_SH_CONNECTIVITY, &info))
+		LOG_ERROR("register ipc notifier failed!\n");
+
+	INIT_DELAYED_WORK(&xiaomi_touch_ipc_work, xiaomi_touch_ipc_handler);
+
+	return;
+}
+#endif
 #endif
 
 int register_touch_panel(struct device *dev, s8 touch_id,
@@ -582,6 +624,15 @@ int register_touch_panel(struct device *dev, s8 touch_id,
 		wake_up_process(xiaomi_touch_temp_thread);
 	}
 
+#if defined(TOUCH_PLATFORM_XRING)
+#ifdef TOUCH_SENSORHUB_SUPPORT
+	/* NOTE:
+ * This process is used for disabling sensorhub when it running abnormally.
+ * For example, receiving normal touch frames.
+ */
+	xiaomi_touch_register_ipc_notifier();
+#endif
+#endif
 	return 0;
 
 err_out:
@@ -653,7 +704,7 @@ static void xiaomi_touch_resume_work(struct work_struct *work)
 	s8 touch_id = xiaomi_touch_data->touch_id;
 	xiaomi_touch_driver_param_t *xiaomi_touch_driver_param =
 		get_xiaomi_touch_driver_param(touch_id);
-#ifndef TOUCH_THP_SUPPORT
+#ifdef TOUCH_THP_SUPPORT
 	int value = 0;
 #endif
 
@@ -664,19 +715,20 @@ static void xiaomi_touch_resume_work(struct work_struct *work)
 		LOG_ERROR("touch id %d is resume, stop resume", touch_id);
 		return;
 	}
-#ifndef TOUCH_THP_SUPPORT
-	add_common_data_to_buf(touch_id, SET_CUR_VALUE, DATA_MODE_27, 1,
-			       &value);
-#endif
-
 	XIAOMI_TOUCH_UTC_PRINT("");
 #ifdef TOUCH_SENSORHUB_SUPPORT
-	xiaomi_notify_sensorhub_enable(touch_id, false);
+	xiaomi_notify_sensorhub_enable(touch_id, false, false);
 #endif
 	if (xiaomi_touch_driver_param->hardware_operation.ic_resume_suspend) {
 		xiaomi_touch_driver_param->hardware_operation.ic_resume_suspend(
 			true, xiaomi_get_gesture_type(touch_id));
 	}
+#ifdef TOUCH_THP_SUPPORT
+	add_common_data_to_buf(touch_id, SET_CUR_VALUE, Touch_Suspend, 1,
+			       &value);
+	add_common_data_to_buf(touch_id, SET_CUR_VALUE, THP_HAL_CHARGING_STATUS,
+			       1, &xiaomi_touch.charging_status);
+#endif
 	/*reset charge state*/
 	if (xiaomi_touch_driver_param->hardware_operation.ic_set_charge_state) {
 		xiaomi_touch_driver_param->hardware_operation
@@ -693,8 +745,9 @@ static void xiaomi_touch_suspend_work(struct work_struct *work)
 	s8 touch_id = xiaomi_touch_data->touch_id;
 	xiaomi_touch_driver_param_t *xiaomi_touch_driver_param =
 		get_xiaomi_touch_driver_param(touch_id);
+#ifdef TOUCH_THP_SUPPORT
 	int value = 1;
-
+#endif
 #ifdef TOUCH_SENSORHUB_SUPPORT
 #ifndef CONFIG_TOUCH_FACTORY_BUILD
 	int ssh_value = XIAOMI_TOUCH_SENSORHUB_NONUIENABLE;
@@ -708,30 +761,30 @@ static void xiaomi_touch_suspend_work(struct work_struct *work)
 		LOG_ERROR("touch id %d is suspend, stop suspend", touch_id);
 		return;
 	}
-
-#ifndef TOUCH_THP_SUPPORT
-	add_common_data_to_buf(touch_id, SET_CUR_VALUE, DATA_MODE_27, 1,
-			       &value);
-#endif
-
 	XIAOMI_TOUCH_UTC_PRINT("");
 	if (xiaomi_touch_driver_param->hardware_operation.ic_resume_suspend) {
 		xiaomi_touch_driver_param->hardware_operation.ic_resume_suspend(
 			false, xiaomi_get_gesture_type(touch_id));
 	}
+#if defined(TOUCH_IS_TDDI)
+	//enable fod under lock screen interact scene
+	if (xiaomi_touch_driver_param->hardware_operation.display_suspend_ready)
+		xiaomi_touch_driver_param->hardware_operation
+			.display_suspend_ready();
+#endif
 #ifdef TOUCH_THP_SUPPORT
-	add_common_data_to_buf(touch_id, SET_CUR_VALUE, DATA_MODE_27, 1,
+	add_common_data_to_buf(touch_id, SET_CUR_VALUE, Touch_Suspend, 1,
 			       &value);
 #ifdef TOUCH_SENSORHUB_SUPPORT
-	xiaomi_notify_sensorhub_enable(touch_id, true);
+	xiaomi_notify_sensorhub_enable(touch_id, true, false);
 #ifndef CONFIG_TOUCH_FACTORY_BUILD
 	if (!xiaomi_touch_data->ssh_status &&
-	    (driver_get_touch_mode(touch_id, DATA_MODE_10) != 0) &&
-	    (driver_get_touch_mode(touch_id, DATA_MODE_17) == 2)) {
+	    (driver_get_touch_mode(touch_id, Touch_Fod_Enable) != 0) &&
+	    (driver_get_touch_mode(touch_id, Touch_Nonui_Mode) == 2)) {
 		LOG_INFO(
 			"sleep by nonui mode,need hold wakeup nonui sensor to notify ap reenter gesture");
-		add_common_data_to_buf(touch_id, SET_CUR_VALUE, DATA_MODE_27, 1,
-				       &ssh_value);
+		add_common_data_to_buf(touch_id, SET_CUR_VALUE, Touch_Suspend,
+				       1, &ssh_value);
 	}
 #endif
 #endif
@@ -762,7 +815,7 @@ static void xiaomi_touch_suspend_tddi(s8 touch_id)
 	}
 #ifdef TOUCH_THP_SUPPORT
 	LOG_INFO("suspend to thp");
-	add_common_data_to_buf(touch_id, SET_CUR_VALUE, DATA_MODE_27, 1,
+	add_common_data_to_buf(touch_id, SET_CUR_VALUE, Touch_Suspend, 1,
 			       &value);
 #endif
 	xiaomi_touch_data->is_suspend = true;
@@ -826,6 +879,8 @@ static void xiaomi_drm_panel_notifier_callback(
 #ifdef TOUCH_IS_TDDI
 	xiaomi_touch_data_t *xiaomi_touch_data =
 		get_xiaomi_touch_data(touch_id);
+	xiaomi_touch_driver_param_t *xiaomi_touch_driver_param =
+		get_xiaomi_touch_driver_param(touch_id);
 #endif
 
 	if (!notification || IS_TOUCH_ID_INVALID(touch_id)) {
@@ -862,7 +917,15 @@ static void xiaomi_drm_panel_notifier_callback(
 						 DRM_PANEL_EVENT_BLANK_LP ?
 					 "POWER DOWN" :
 					 "LP");
+			resume_skip = true;
+			LOG_INFO("resume skip = %d", resume_skip);
 			xiaomi_touch_suspend_tddi((s8)touch_id);
+		}
+		if (notification->notif_data.early_trigger == 0) {
+			if (xiaomi_touch_driver_param->hardware_operation
+				    .display_suspend_ready)
+				xiaomi_touch_driver_param->hardware_operation
+					.display_suspend_ready();
 		}
 #else
 		if (notification->notif_data.early_trigger == 0) {
@@ -1094,6 +1157,11 @@ static void xiaomi_power_supply_work(struct work_struct *work)
 				get_xiaomi_touch_driver_param(i);
 			if (!xiaomi_touch_driver_param)
 				break;
+#ifdef TOUCH_THP_SUPPORT
+			add_common_data_to_buf(i, SET_CUR_VALUE,
+					       THP_HAL_CHARGING_STATUS, 1,
+					       &charging_status);
+#endif
 			if (xiaomi_touch_driver_param->hardware_operation
 				    .ic_set_charge_state) {
 				xiaomi_touch_driver_param->hardware_operation
@@ -1133,6 +1201,60 @@ static void xiaomi_unregister_power_supply_event(void)
 	cancel_work_sync(&xiaomi_touch.power_supply_work);
 	power_supply_unreg_notifier(&xiaomi_touch.power_supply_notifier);
 }
+
+#if IS_ENABLED(CONFIG_MIEV)
+void xiaomi_touch_mievent_report_int(unsigned int code, int panel_id,
+				     const char *fault_name,
+				     const char *vendor_name, long error_code)
+{
+	struct misight_mievent *event;
+
+#ifdef CONFIG_TOUCH_FACTORY_BUILD
+	LOG_INFO("factory build,return\n");
+	return;
+#endif
+	LOG_INFO(
+		"code:%d,fault_name:%s,panel_id:%d,vendor_name:%s,error_code:%ld\n",
+		code, fault_name, panel_id, vendor_name, error_code);
+	event = cdev_tevent_alloc(code);
+	if (!event) {
+		LOG_ERROR("misight event is error\n");
+		return;
+	}
+	cdev_tevent_add_int(event, "panel_id", panel_id);
+	cdev_tevent_add_str(event, "fault_name", fault_name);
+	cdev_tevent_add_str(event, "vendor_name", vendor_name);
+	cdev_tevent_add_int(event, "error_code", error_code);
+	cdev_tevent_write(event);
+	cdev_tevent_destroy(event);
+}
+EXPORT_SYMBOL_GPL(xiaomi_touch_mievent_report_int);
+
+void xiaomi_touch_mievent_report_str(unsigned int code, int panel_id,
+				     const char *fault_name,
+				     const char *vendor_name)
+{
+	struct misight_mievent *event;
+
+#ifdef CONFIG_TOUCH_FACTORY_BUILD
+	LOG_INFO("factory build,return\n");
+	return;
+#endif
+	LOG_INFO("code:%d,fault_name:%s,panel_id:%d,vendor_name:%s\n", code,
+		 fault_name, panel_id, vendor_name);
+	event = cdev_tevent_alloc(code);
+	if (!event) {
+		LOG_ERROR("misight event is error\n");
+		return;
+	}
+	cdev_tevent_add_int(event, "panel_id", panel_id);
+	cdev_tevent_add_str(event, "fault_name", fault_name);
+	cdev_tevent_add_str(event, "vendor_name", vendor_name);
+	cdev_tevent_write(event);
+	cdev_tevent_destroy(event);
+}
+EXPORT_SYMBOL_GPL(xiaomi_touch_mievent_report_str);
+#endif
 
 void nfc_to_touch_event(s8 touch_id, u8 val)
 {

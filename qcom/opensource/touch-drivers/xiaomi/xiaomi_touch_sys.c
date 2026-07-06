@@ -422,8 +422,8 @@ CREATE_ATTR(
 					.palm_sensor_write(!!input);
 		}
 
-		add_common_data_to_buf(TOUCH_ID, SET_CUR_VALUE, DATA_MODE_26, 1,
-				       &input);
+		add_common_data_to_buf(TOUCH_ID, SET_CUR_VALUE,
+				       Touch_Palm_Sensor, 1, &input);
 		LOG_INFO("value:%d", input);
 		return count;
 	});
@@ -491,7 +491,8 @@ CREATE_ATTR(
 		thp_ic_cmd_data_common_data.mode = (u16)input[1];
 		thp_ic_cmd_data_common_data.data_buf[0] = input[2];
 
-		if (thp_ic_cmd_data_common_data.mode == IC_MODE_44) {
+		if (thp_ic_cmd_data_common_data.mode ==
+		    SET_OPEN_TRANSPORT_MODE) {
 			/* transport mode, databuf for send to driver is [s32 addr][u8 data0][u8 data1]... */
 			for (i = 3; i < para_cnt - 1; ++i) {
 				*databuf = (u8)input[i];
@@ -576,7 +577,7 @@ CREATE_ATTR(
 			LOG_INFO("buf[%d]:%x", i, data_buf[i]);
 		}
 		if (mode > THP_IC_CMD_BASE) {
-			if (mode != IC_MODE_49) {
+			if (mode != SET_TOUCH_IC_INFO) {
 				for (i = 0; i < data_len; ++i) {
 					count += snprintf(buf + count,
 							  PAGE_SIZE - count,

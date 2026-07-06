@@ -144,6 +144,8 @@ static ssize_t xiaomi_touch_dev_write(struct file *file, const char __user *buf,
 		} else if (temp_buf[21] == '0') {
 			release_input_event_timeline();
 		}
+		add_common_data_to_buf(0, SET_CUR_VALUE,
+				       THP_ENABLE_WRITE_THP_TIME, 1, &value);
 		return count;
 	}
 
