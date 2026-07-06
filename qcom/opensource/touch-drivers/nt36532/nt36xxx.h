@@ -144,13 +144,13 @@
 #define NVT_TS_NAME "NVTCapacitiveTouchScreen"
 #define NVT_M80P_PEN_NAME "NVTCapacitivePenM80p"
 #define NVT_P81C_PEN_NAME "NVTCapacitivePenP81c"
-//---Touch info.---3200*2136
-#define TOUCH_MAX_WIDTH 2136
-#define TOUCH_MAX_HEIGHT 3200
-#define PEN_MAX_WIDTH 2136
-#define PEN_MAX_HEIGHT 3200
-#define TOUCH_RX_NUM 40
-#define TOUCH_TX_NUM 60
+//---Touch info.---2772*1280
+#define TOUCH_MAX_WIDTH 1280
+#define TOUCH_MAX_HEIGHT 2772
+#define PEN_MAX_WIDTH 1280
+#define PEN_MAX_HEIGHT 2772
+#define TOUCH_RX_NUM 18
+#define TOUCH_TX_NUM 39
 #define TOUCH_MAX_FINGER_NUM 10
 #define TOUCH_KEY_NUM 0
 #if TOUCH_KEY_NUM > 0
