@@ -365,10 +365,10 @@ static const struct file_operations micam_fops = {
 static int __init mi_camera_init(void)
 {
 	int rc = 0;
-	int cpu = 0;
 	struct device *device;
 	struct micam_dev *micam_dev = &cam_dev;
 #ifdef CONFIG_MI_CAM_WALT
+	int cpu = 0;
 	struct micam_amu_data *amu_data = NULL;
 #endif
 
