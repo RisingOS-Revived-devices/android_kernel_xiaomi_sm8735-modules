@@ -113,6 +113,7 @@ ifeq ($(TARGET_KERNEL_DLKM_DISABLE), true)
 endif
 
 ifeq ($(CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE), y)
+	ccflags-y += -DTOUCH_THP_SUPPORT=1 -DTOUCH_IS_TDDI
 	xiaomi_touch-y := \
 		 ./xiaomi/xiaomi_touch_core.o \
 		 ./xiaomi/xiaomi_touch_knock_data.o \
@@ -123,6 +124,16 @@ ifeq ($(CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE), y)
 		 ./xiaomi/xiaomi_touch_evdev.o \
 		 ./xiaomi/xiaomi_touch_device.o
 	obj-$(CONFIG_MSM_TOUCH) += xiaomi_touch.o
+endif
+
+ifeq ($(TOUCHSCREEN_NT36xxx_HOSTDL_SPI), y)
+	ccflags-y += -DCONFIG_TOUCHSCREEN_NVT_DEBUG_FS
+	nt36532_touch-y := \
+		 ./nt36532/nt36xxx.o \
+		 ./nt36532/nt36xxx_fw_update.o \
+		 ./nt36532/nt36xxx_ext_proc.o \
+		 ./nt36532/nt36xxx_mp_ctrlram.o
+	obj-$(CONFIG_MSM_TOUCH) += nt36532_touch.o
 endif
 
 ifeq ($(CONFIG_QTS_ENABLE), y)
