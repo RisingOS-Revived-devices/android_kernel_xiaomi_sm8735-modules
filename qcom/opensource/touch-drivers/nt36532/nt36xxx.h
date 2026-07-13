@@ -488,8 +488,6 @@ enum THP_IC_MODE__COMMADN_TYPE {
 //thp end 6.8
 
 /* Extended mode definitions */
-#define IC_MODE_57 (THP_IC_CMD_BASE + 58)
-#define IC_MODE_58 (THP_IC_CMD_BASE + 59)
 #define DATA_MODE_176 20038
 #define DATA_MODE_177 20039
 

@@ -978,7 +978,7 @@ static int nvt_thp_ic_write_interfaces(u_int32_t addr, u8 *value, int value_len)
 	NVT_LOG("++\n");
 	mutex_lock(&ts->lock);
 
-	if (htc_ic_mode == IC_MODE_44) {
+	if (htc_ic_mode == SET_OPEN_TRANSPORT_MODE) {
 		if (check_address(addr)) {
 			nvt_set_page(addr);
 		} else {
@@ -1015,7 +1015,7 @@ static int nvt_thp_ic_read_interfaces(u_int32_t addr, u8 *value, int value_len)
 		return -EBUSY;
 	}
 
-	if (htc_ic_mode != IC_MODE_44) {
+	if (htc_ic_mode != SET_OPEN_TRANSPORT_MODE) {
 		value_len = 2;
 	}
 
@@ -1072,139 +1072,139 @@ int nvt_htc_ic_setModeValue(common_data_t *common_data)
 
 	htc_ic_mode = mode;
 	switch (mode) {
-	case IC_MODE_0:
+	case SET_IDLE_THD:
 		ret = nvt_thp_ic_write_interfaces(0x02, value, value_len);
 		break;
-	case IC_MODE_1:
+	case SET_IDLE_RATE:
 		ret = nvt_thp_ic_write_interfaces(0xff, value, value_len);
 		break;
-	case IC_MODE_2:
+	case SET_ENTER_SLEEP_MODE:
 		ret = nvt_thp_ic_write_interfaces(0xff, value, value_len);
 		break;
-	case IC_MODE_3:
+	case SET_VSYNC_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_4:
+	case SET_HSYNC_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_5:
+	case SET_FOD_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_6:
+	case SET_REPORT_RATE:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_7:
+	case SET_SCAN_FREQ:
 		ret = nvt_thp_ic_write_interfaces(0x09, value, value_len);
 		break;
-	case IC_MODE_8:
+	case SET_SCAN_FREQ_HOPPING_EN:
 		ret = nvt_thp_ic_write_interfaces(0x08, value, value_len);
 		break;
-	case IC_MODE_9:
+	case SET_AFE_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_10:
+	case SET_MC_SCAN_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_11:
+	case SET_SC_SCAN_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_12:
+	case SET_MC_CALIBRATION_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_13:
+	case SET_SC_CALIBRATION_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_14:
+	case SET_LINE_SHIRT_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_15:
+	case SET_INT_STATE:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_16:
+	case SET_BASE_REFRESH_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_17:
+	case SET_FRAME_DATA_TYPE:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_18:
+	case SET_GAME_MODE_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_19:
+	case SET_CHARGING_STATUS_EN:
 		ret = nvt_thp_ic_write_interfaces(0x10, value, value_len);
 		break;
-	case IC_MODE_20:
+	case SET_TOUCH_IC_RESET_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_21:
+	case SET_GESTURE_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_22:
+	case SET_CHLICK_GESTURE_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_23:
+	case SET_DOUBLE_CHLICK_EN:
 		ret = nvt_thp_ic_write_interfaces(0x11, value, value_len);
 		break;
-	case IC_MODE_24:
+	case SET_FLAG_BUF:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_25:
+	case SET_ACTIVE_STYLUS_PROTOCOL:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_26:
+	case ACTIVE_STYLUS_EN:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_27:
+	case ACTIVE_STYLUS_ONLY_EN:
 		ret = nvt_thp_ic_write_interfaces(0x05, value, value_len);
 		break;
-	case IC_MODE_28:
+	case ACTIVE_STYLUS_TOUCH_SIMULTANEOUSLY:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_29:
+	case ACTIVE_STYLUS_SYNC_SUCESS:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_30:
+	case ACTIVE_STYLUS_GESTURE_MODE:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_31:
+	case SET_IC_RUN_STEP:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_32:
+	case SET_NULL_MODE:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_33:
+	case SET_IC_LOG_LEVEL:
 		ret = nvt_thp_ic_write_interfaces(0x13, value, value_len);
 		break;
-	case IC_MODE_34:
+	case SET_IC_CALIBRATEION:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_35:
+	case SET_IC_SELF_TEST:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_36:
+	case SET_IC_SOFT_RETEST:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_37:
+	case SET_SCAN_SLOPE:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_38:
+	case SET_SCAN_VOLTAGE:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_39:
+	case SET_SCAN_NUM:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_40:
+	case SET_SCAN_FREQ_NUM:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_41:
+	case SET_IC_WORK_MODE:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_42:
+	case SET_FILTER_LEVEL:
 		ret = nvt_thp_ic_write_interfaces(0x14, value, value_len);
 		break;
-	case IC_MODE_43:
+	case SET_RAW_TYPE:
 		ret = nvt_thp_ic_write_interfaces(0x06, value, value_len);
 		break;
-	case IC_MODE_44:
+	case SET_OPEN_TRANSPORT_MODE:
 		ret = nvt_thp_ic_write_interfaces(addr, value, value_len);
 		break;
 	default:
@@ -1229,139 +1229,139 @@ int nvt_htc_ic_getModeValue(common_data_t *common_data)
 	}
 	htc_ic_mode = mode;
 	switch (mode) {
-	case IC_MODE_0:
+	case SET_IDLE_THD:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_1:
+	case SET_IDLE_RATE:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_2:
+	case SET_ENTER_SLEEP_MODE:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_3:
+	case SET_VSYNC_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_4:
+	case SET_HSYNC_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_5:
+	case SET_FOD_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_6:
+	case SET_REPORT_RATE:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_7:
+	case SET_SCAN_FREQ:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_8:
+	case SET_SCAN_FREQ_HOPPING_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_9:
+	case SET_AFE_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_10:
+	case SET_MC_SCAN_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_11:
+	case SET_SC_SCAN_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_12:
+	case SET_MC_CALIBRATION_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_13:
+	case SET_SC_CALIBRATION_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_14:
+	case SET_LINE_SHIRT_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_15:
+	case SET_INT_STATE:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_16:
+	case SET_BASE_REFRESH_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_17:
+	case SET_FRAME_DATA_TYPE:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_18:
+	case SET_GAME_MODE_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_19:
+	case SET_CHARGING_STATUS_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_20:
+	case SET_TOUCH_IC_RESET_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_21:
+	case SET_GESTURE_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_22:
+	case SET_CHLICK_GESTURE_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_23:
+	case SET_DOUBLE_CHLICK_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_24:
+	case SET_FLAG_BUF:
 		nvt_thp_ic_read_interfaces(0x12, value, value_len);
 		break;
-	case IC_MODE_25:
+	case SET_ACTIVE_STYLUS_PROTOCOL:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_26:
+	case ACTIVE_STYLUS_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_27:
+	case ACTIVE_STYLUS_ONLY_EN:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_28:
+	case ACTIVE_STYLUS_TOUCH_SIMULTANEOUSLY:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_29:
+	case ACTIVE_STYLUS_SYNC_SUCESS:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_30:
+	case ACTIVE_STYLUS_GESTURE_MODE:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_31:
+	case SET_IC_RUN_STEP:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_32:
+	case SET_NULL_MODE:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_33:
+	case SET_IC_LOG_LEVEL:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_34:
+	case SET_IC_CALIBRATEION:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_35:
+	case SET_IC_SELF_TEST:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_36:
+	case SET_IC_SOFT_RETEST:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_37:
+	case SET_SCAN_SLOPE:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_38:
+	case SET_SCAN_VOLTAGE:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_39:
+	case SET_SCAN_NUM:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_40:
+	case SET_SCAN_FREQ_NUM:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_41:
+	case SET_IC_WORK_MODE:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_42:
+	case SET_FILTER_LEVEL:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_43:
+	case SET_RAW_TYPE:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
-	case IC_MODE_44:
+	case SET_OPEN_TRANSPORT_MODE:
 		nvt_thp_ic_read_interfaces(addr, value, value_len);
 		break;
 	default:
@@ -3693,7 +3693,7 @@ int nvt_enable_touch_raw(int en)
 	// if (en) {
 	//cleanUp(0);
 	ts->enable_touch_raw = true;
-	add_common_data_to_buf(0, SET_CUR_VALUE, DATA_MODE_63, 1,
+	add_common_data_to_buf(0, SET_CUR_VALUE, THP_HAL_CHARGING_STATUS, 1,
 			       &ts->is_usb_exist);
 	// } else {
 	// 	//cleanUp(1);
@@ -3713,7 +3713,7 @@ int nvt_enable_touch_raw(int en)
 static hardware_operation_t hardware_operation;
 static hardware_param_t hardware_param;
 #define VALUE_TYPE_SIZE 5
-static int touch_mode[DATA_MODE_35][VALUE_TYPE_SIZE];
+static int touch_mode[Touch_Mode_NUM][VALUE_TYPE_SIZE];
 
 static void nvt_init_touchmode_data(void)
 {
@@ -3721,117 +3721,117 @@ static void nvt_init_touchmode_data(void)
 
 	NVT_LOG("%s,ENTER\n", __func__);
 	/* Touch Game Mode Switch */
-	touch_mode[DATA_MODE_0][GET_MAX_VALUE] = 1;
-	touch_mode[DATA_MODE_0][GET_MIN_VALUE] = 0;
-	touch_mode[DATA_MODE_0][GET_DEF_VALUE] = 0;
-	touch_mode[DATA_MODE_0][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_0][GET_CUR_VALUE] = 0;
+	touch_mode[Touch_Game_Mode][GET_MAX_VALUE] = 1;
+	touch_mode[Touch_Game_Mode][GET_MIN_VALUE] = 0;
+	touch_mode[Touch_Game_Mode][GET_DEF_VALUE] = 0;
+	touch_mode[Touch_Game_Mode][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Game_Mode][GET_CUR_VALUE] = 0;
 
 	/* Acitve Mode */
-	touch_mode[DATA_MODE_1][GET_MAX_VALUE] = 1;
-	touch_mode[DATA_MODE_1][GET_MIN_VALUE] = 0;
-	touch_mode[DATA_MODE_1][GET_DEF_VALUE] = 0;
-	touch_mode[DATA_MODE_1][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_1][GET_CUR_VALUE] = 0;
+	touch_mode[Touch_Active_MODE][GET_MAX_VALUE] = 1;
+	touch_mode[Touch_Active_MODE][GET_MIN_VALUE] = 0;
+	touch_mode[Touch_Active_MODE][GET_DEF_VALUE] = 0;
+	touch_mode[Touch_Active_MODE][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Active_MODE][GET_CUR_VALUE] = 0;
 
 	/* Tap Sensivity */
-	touch_mode[DATA_MODE_2][GET_MAX_VALUE] = 4;
-	touch_mode[DATA_MODE_2][GET_MIN_VALUE] = 0;
-	touch_mode[DATA_MODE_2][GET_DEF_VALUE] = 2;
-	touch_mode[DATA_MODE_2][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_2][GET_CUR_VALUE] = 0;
+	touch_mode[Touch_UP_THRESHOLD][GET_MAX_VALUE] = 4;
+	touch_mode[Touch_UP_THRESHOLD][GET_MIN_VALUE] = 0;
+	touch_mode[Touch_UP_THRESHOLD][GET_DEF_VALUE] = 2;
+	touch_mode[Touch_UP_THRESHOLD][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_UP_THRESHOLD][GET_CUR_VALUE] = 0;
 
 	/* Touch Tolerance */
-	touch_mode[DATA_MODE_3][GET_MAX_VALUE] = 4;
-	touch_mode[DATA_MODE_3][GET_MIN_VALUE] = 0;
-	touch_mode[DATA_MODE_3][GET_DEF_VALUE] = 2;
-	touch_mode[DATA_MODE_3][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_3][GET_CUR_VALUE] = 0;
+	touch_mode[Touch_Tolerance][GET_MAX_VALUE] = 4;
+	touch_mode[Touch_Tolerance][GET_MIN_VALUE] = 0;
+	touch_mode[Touch_Tolerance][GET_DEF_VALUE] = 2;
+	touch_mode[Touch_Tolerance][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Tolerance][GET_CUR_VALUE] = 0;
 
 	/* Touch Aim Sensitivity */
-	touch_mode[DATA_MODE_4][GET_MAX_VALUE] = 4;
-	touch_mode[DATA_MODE_4][GET_MIN_VALUE] = 0;
-	touch_mode[DATA_MODE_4][GET_DEF_VALUE] = 2;
-	touch_mode[DATA_MODE_4][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_4][GET_CUR_VALUE] = 0;
+	touch_mode[Touch_Aim_Sensitivity][GET_MAX_VALUE] = 4;
+	touch_mode[Touch_Aim_Sensitivity][GET_MIN_VALUE] = 0;
+	touch_mode[Touch_Aim_Sensitivity][GET_DEF_VALUE] = 2;
+	touch_mode[Touch_Aim_Sensitivity][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Aim_Sensitivity][GET_CUR_VALUE] = 0;
 
 	/* [Touch Tap Stability */
-	touch_mode[DATA_MODE_5][GET_MAX_VALUE] = 4;
-	touch_mode[DATA_MODE_5][GET_MIN_VALUE] = 0;
-	touch_mode[DATA_MODE_5][GET_DEF_VALUE] = 2;
-	touch_mode[DATA_MODE_5][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_5][GET_CUR_VALUE] = 0;
+	touch_mode[Touch_Tap_Stability][GET_MAX_VALUE] = 4;
+	touch_mode[Touch_Tap_Stability][GET_MIN_VALUE] = 0;
+	touch_mode[Touch_Tap_Stability][GET_DEF_VALUE] = 2;
+	touch_mode[Touch_Tap_Stability][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Tap_Stability][GET_CUR_VALUE] = 0;
 
-	touch_mode[DATA_MODE_6][GET_MAX_VALUE] = 3;
-	touch_mode[DATA_MODE_6][GET_MIN_VALUE] = 1;
-	touch_mode[DATA_MODE_6][GET_DEF_VALUE] = 1;
-	touch_mode[DATA_MODE_6][SET_CUR_VALUE] = 1;
-	touch_mode[DATA_MODE_6][GET_CUR_VALUE] = 1;
+	touch_mode[Touch_Expert_Mode][GET_MAX_VALUE] = 3;
+	touch_mode[Touch_Expert_Mode][GET_MIN_VALUE] = 1;
+	touch_mode[Touch_Expert_Mode][GET_DEF_VALUE] = 1;
+	touch_mode[Touch_Expert_Mode][SET_CUR_VALUE] = 1;
+	touch_mode[Touch_Expert_Mode][GET_CUR_VALUE] = 1;
 
 	/* Panel orientation*/
-	touch_mode[DATA_MODE_8][GET_MAX_VALUE] = 3;
-	touch_mode[DATA_MODE_8][GET_MIN_VALUE] = 0;
-	touch_mode[DATA_MODE_8][GET_DEF_VALUE] = 0;
-	touch_mode[DATA_MODE_8][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_8][GET_CUR_VALUE] = 0;
+	touch_mode[Touch_Panel_Orientation][GET_MAX_VALUE] = 3;
+	touch_mode[Touch_Panel_Orientation][GET_MIN_VALUE] = 0;
+	touch_mode[Touch_Panel_Orientation][GET_DEF_VALUE] = 0;
+	touch_mode[Touch_Panel_Orientation][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Panel_Orientation][GET_CUR_VALUE] = 0;
 
 	/* Edge filter area*/
-	touch_mode[DATA_MODE_7][GET_MAX_VALUE] = 3;
-	touch_mode[DATA_MODE_7][GET_MIN_VALUE] = 0;
-	touch_mode[DATA_MODE_7][GET_DEF_VALUE] = 2;
-	touch_mode[DATA_MODE_7][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_7][GET_CUR_VALUE] = 0;
+	touch_mode[Touch_Edge_Filter][GET_MAX_VALUE] = 3;
+	touch_mode[Touch_Edge_Filter][GET_MIN_VALUE] = 0;
+	touch_mode[Touch_Edge_Filter][GET_DEF_VALUE] = 2;
+	touch_mode[Touch_Edge_Filter][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Edge_Filter][GET_CUR_VALUE] = 0;
 
 	/* Resist RF interference*/
-	touch_mode[DATA_MODE_12][GET_MAX_VALUE] = 1;
-	touch_mode[DATA_MODE_12][GET_MIN_VALUE] = 0;
-	touch_mode[DATA_MODE_12][GET_DEF_VALUE] = 0;
-	touch_mode[DATA_MODE_12][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_12][GET_CUR_VALUE] = 0;
+	touch_mode[Touch_Resist_RF][GET_MAX_VALUE] = 1;
+	touch_mode[Touch_Resist_RF][GET_MIN_VALUE] = 0;
+	touch_mode[Touch_Resist_RF][GET_DEF_VALUE] = 0;
+	touch_mode[Touch_Resist_RF][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Resist_RF][GET_CUR_VALUE] = 0;
 
-	/* DATA_MODE_20 */
-	touch_mode[DATA_MODE_20][GET_MAX_VALUE] = 0x18;
-	touch_mode[DATA_MODE_20][GET_MIN_VALUE] = -1;
-	touch_mode[DATA_MODE_20][GET_DEF_VALUE] = 0;
-	touch_mode[DATA_MODE_20][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_20][GET_CUR_VALUE] = 0;
+	/* Touch_Stylus_Enable */
+	touch_mode[Touch_Stylus_Enable][GET_MAX_VALUE] = 0x18;
+	touch_mode[Touch_Stylus_Enable][GET_MIN_VALUE] = -1;
+	touch_mode[Touch_Stylus_Enable][GET_DEF_VALUE] = 0;
+	touch_mode[Touch_Stylus_Enable][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Stylus_Enable][GET_CUR_VALUE] = 0;
 
-	/* DATA_MODE_14 */
-	touch_mode[DATA_MODE_14][GET_MAX_VALUE] = 1;
-	touch_mode[DATA_MODE_14][GET_MIN_VALUE] = 0;
-	touch_mode[DATA_MODE_14][GET_DEF_VALUE] = 0;
-	touch_mode[DATA_MODE_14][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_14][GET_CUR_VALUE] = 0;
+	/* Touch_Doubletap_Mode */
+	touch_mode[Touch_Doubletap_Mode][GET_MAX_VALUE] = 1;
+	touch_mode[Touch_Doubletap_Mode][GET_MIN_VALUE] = 0;
+	touch_mode[Touch_Doubletap_Mode][GET_DEF_VALUE] = 0;
+	touch_mode[Touch_Doubletap_Mode][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Doubletap_Mode][GET_CUR_VALUE] = 0;
 
-	/* DATA_MODE_22 */
-	touch_mode[DATA_MODE_22][GET_MAX_VALUE] = 0xFFFF;
-	touch_mode[DATA_MODE_22][GET_MIN_VALUE] = 1;
-	touch_mode[DATA_MODE_22][GET_DEF_VALUE] = 0;
-	touch_mode[DATA_MODE_22][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_22][GET_CUR_VALUE] = 0;
+	/* Touch_Stylus_Hopping_Mode */
+	touch_mode[Touch_Stylus_Hopping_Mode][GET_MAX_VALUE] = 0xFFFF;
+	touch_mode[Touch_Stylus_Hopping_Mode][GET_MIN_VALUE] = 1;
+	touch_mode[Touch_Stylus_Hopping_Mode][GET_DEF_VALUE] = 0;
+	touch_mode[Touch_Stylus_Hopping_Mode][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Stylus_Hopping_Mode][GET_CUR_VALUE] = 0;
 
-	/* DATA_MODE_24 */
-	touch_mode[DATA_MODE_24][GET_MAX_VALUE] = 1;
-	touch_mode[DATA_MODE_24][GET_MIN_VALUE] = 0;
-	touch_mode[DATA_MODE_24][GET_DEF_VALUE] = 0;
-	touch_mode[DATA_MODE_24][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_24][GET_CUR_VALUE] = 0;
+	/* Touch_Stylus_Quick_Note_Mode */
+	touch_mode[Touch_Stylus_Quick_Note_Mode][GET_MAX_VALUE] = 1;
+	touch_mode[Touch_Stylus_Quick_Note_Mode][GET_MIN_VALUE] = 0;
+	touch_mode[Touch_Stylus_Quick_Note_Mode][GET_DEF_VALUE] = 0;
+	touch_mode[Touch_Stylus_Quick_Note_Mode][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Stylus_Quick_Note_Mode][GET_CUR_VALUE] = 0;
 
-	/* DATA_MODE_33 */
-	touch_mode[DATA_MODE_33][GET_MAX_VALUE] = 1;
-	touch_mode[DATA_MODE_33][GET_MIN_VALUE] = 0;
-	touch_mode[DATA_MODE_33][GET_DEF_VALUE] = 0;
-	touch_mode[DATA_MODE_33][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_33][GET_CUR_VALUE] = 0;
+	/* Touch_Stylus_Gamemode_Enable */
+	touch_mode[Touch_Stylus_Gamemode_Enable][GET_MAX_VALUE] = 1;
+	touch_mode[Touch_Stylus_Gamemode_Enable][GET_MIN_VALUE] = 0;
+	touch_mode[Touch_Stylus_Gamemode_Enable][GET_DEF_VALUE] = 0;
+	touch_mode[Touch_Stylus_Gamemode_Enable][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Stylus_Gamemode_Enable][GET_CUR_VALUE] = 0;
 
-	/* DATA_MODE_29 */
-	touch_mode[DATA_MODE_29][GET_MAX_VALUE] = 1;
-	touch_mode[DATA_MODE_29][GET_MIN_VALUE] = 0;
-	touch_mode[DATA_MODE_29][GET_DEF_VALUE] = 0;
-	touch_mode[DATA_MODE_29][SET_CUR_VALUE] = 0;
-	touch_mode[DATA_MODE_29][GET_CUR_VALUE] = 0;
+	/* Touch_Stylus_Sleep_Status */
+	touch_mode[Touch_Stylus_Sleep_Status][GET_MAX_VALUE] = 1;
+	touch_mode[Touch_Stylus_Sleep_Status][GET_MIN_VALUE] = 0;
+	touch_mode[Touch_Stylus_Sleep_Status][GET_DEF_VALUE] = 0;
+	touch_mode[Touch_Stylus_Sleep_Status][SET_CUR_VALUE] = 0;
+	touch_mode[Touch_Stylus_Sleep_Status][GET_CUR_VALUE] = 0;
 
-	for (i = 0; i < DATA_MODE_35; i++) {
+	for (i = 0; i < Touch_Mode_NUM; i++) {
 		NVT_LOG("mode:%d, set cur:%d, get cur:%d, def:%d min:%d max:%d\n",
 			i, touch_mode[i][SET_CUR_VALUE],
 			touch_mode[i][GET_CUR_VALUE],
@@ -4032,7 +4032,7 @@ int update_pen_status(bool enforce_send_cmd)
 #endif
 
 #if TOUCH_THP_SUPPORT
-	add_common_data_to_buf(0, SET_CUR_VALUE, DATA_MODE_142, 1, &enable);
+	add_common_data_to_buf(0, SET_CUR_VALUE, THP_HAL_STYLUS_ACTIVE, 1, &enable);
 #endif
 
 	enable_last_time = enable;
@@ -4111,13 +4111,13 @@ void nvt_fw_reload_recovery(void)
 	}
 	/* reload fw should update touchfeature again */
 	if (!ts->gamemode_enable) {
-		touch_mode[DATA_MODE_8][GET_CUR_VALUE] =
-			touch_mode[DATA_MODE_8][GET_DEF_VALUE];
+		touch_mode[Touch_Panel_Orientation][GET_CUR_VALUE] =
+			touch_mode[Touch_Panel_Orientation][GET_DEF_VALUE];
 
-		touch_mode[DATA_MODE_12][GET_CUR_VALUE] =
-			touch_mode[DATA_MODE_12][GET_DEF_VALUE];
+		touch_mode[Touch_Resist_RF][GET_CUR_VALUE] =
+			touch_mode[Touch_Resist_RF][GET_DEF_VALUE];
 	} else {
-		for (i = 0; i < DATA_MODE_13; i++) {
+		for (i = 0; i < Touch_Idle_Time; i++) {
 			touch_mode[i][GET_CUR_VALUE] =
 				touch_mode[i][GET_DEF_VALUE];
 		}
@@ -4142,12 +4142,12 @@ static void nvt_ic_switch_mode(u8 gesture_type)
 
 /* THP scheme this function will not be called */
 static void nvt_cmd_mode_update(long mode_update_flag,
-				int mode_value[DATA_MODE_35])
+				int mode_value[Touch_Mode_NUM])
 {
 	int nvt_value;
 
-	if (mode_update_flag & (1 << DATA_MODE_0)) {
-		nvt_value = mode_value[DATA_MODE_0];
+	if (mode_update_flag & (1 << Touch_Game_Mode)) {
+		nvt_value = mode_value[Touch_Game_Mode];
 		NVT_LOG("Touch gamemode %s", nvt_value ? "on" : "off");
 		mutex_lock(&ts->lock);
 		nvt_enable_game_mode(nvt_value);
@@ -4163,7 +4163,7 @@ static void nvt_set_cur_value(int mode, int *value)
 	NVT_LOG("mode:%d, value:%d, bTouchIsAwake:%d", nvt_mode, nvt_value,
 		bTouchIsAwake);
 
-	if (nvt_mode < DATA_MODE_35) {
+	if (nvt_mode < Touch_Mode_NUM) {
 		if (nvt_value > touch_mode[nvt_mode][GET_MAX_VALUE]) {
 			nvt_value = touch_mode[nvt_mode][GET_MAX_VALUE];
 		} else if (nvt_value < touch_mode[nvt_mode][GET_MIN_VALUE]) {
@@ -4172,7 +4172,7 @@ static void nvt_set_cur_value(int mode, int *value)
 		touch_mode[nvt_mode][SET_CUR_VALUE] = nvt_value;
 	}
 
-	if (nvt_mode == IC_MODE_57 && ts) {
+	if (nvt_mode == SET_STYLUS_GAME_MODE && ts) {
 		if (nvt_value == 1) {
 			ts->gamemode_enable = 1;
 		} else if (nvt_value == 0) {
@@ -4190,7 +4190,7 @@ static void nvt_set_cur_value(int mode, int *value)
 		return;
 	}
 
-	if (nvt_mode == DATA_MODE_20 && ts) {
+	if (nvt_mode == Touch_Stylus_Enable && ts) {
 		/* cover system server crash */
 		if (nvt_value == -1) {
 			ts->pen_count = 0;
@@ -4249,7 +4249,7 @@ static void nvt_set_cur_value(int mode, int *value)
 			ts->pen_count);
 		nvt_set_gesture_mode(
 			(ts->pen_bluetooth_connect &&
-			 driver_get_touch_mode(TOUCH_ID, DATA_MODE_24)) ?
+			 driver_get_touch_mode(TOUCH_ID, Touch_Stylus_Quick_Note_Mode)) ?
 				(ts->gesture_command | 0x02) :
 				(ts->gesture_command & 0xFD));
 		if (ts->pen_support) {
@@ -4260,7 +4260,7 @@ static void nvt_set_cur_value(int mode, int *value)
 		release_pen_event();
 		return;
 	}
-	if (nvt_mode == DATA_MODE_29 && ts) {
+	if (nvt_mode == Touch_Stylus_Sleep_Status && ts) {
 		ts->pen_static_status = nvt_value;
 		NVT_LOG("ts->pen_static_status:%d", ts->pen_static_status);
 		if (bTouchIsAwake) {
@@ -4271,7 +4271,7 @@ static void nvt_set_cur_value(int mode, int *value)
 		return;
 	}
 	/* MIPP Start */
-	if (nvt_mode == DATA_MODE_22 && ts && nvt_value >= 0) {
+	if (nvt_mode == Touch_Stylus_Hopping_Mode && ts && nvt_value >= 0) {
 		if (ts->pen_bluetooth_connect == 0) {
 			NVT_LOG("MIPP stylus is disconnect, skip hopping frequency");
 			return;
@@ -4319,21 +4319,21 @@ static void nvt_set_cur_value(int mode, int *value)
 		return;
 	}
 
-	if (nvt_mode == DATA_MODE_6) {
+	if (nvt_mode == Touch_Expert_Mode) {
 		NVT_LOG("This is Expert Mode, mode is %d", nvt_value);
-		touch_mode[DATA_MODE_2][SET_CUR_VALUE] =
+		touch_mode[Touch_UP_THRESHOLD][SET_CUR_VALUE] =
 			ts->gamemode_config[nvt_value - 1][0];
-		touch_mode[DATA_MODE_3][SET_CUR_VALUE] =
+		touch_mode[Touch_Tolerance][SET_CUR_VALUE] =
 			ts->gamemode_config[nvt_value - 1][1];
-		touch_mode[DATA_MODE_4][SET_CUR_VALUE] =
+		touch_mode[Touch_Aim_Sensitivity][SET_CUR_VALUE] =
 			ts->gamemode_config[nvt_value - 1][2];
-		touch_mode[DATA_MODE_5][SET_CUR_VALUE] =
+		touch_mode[Touch_Tap_Stability][SET_CUR_VALUE] =
 			ts->gamemode_config[nvt_value - 1][3];
-		touch_mode[DATA_MODE_7][SET_CUR_VALUE] =
+		touch_mode[Touch_Edge_Filter][SET_CUR_VALUE] =
 			ts->gamemode_config[nvt_value - 1][4];
 	}
 
-	if (nvt_mode == DATA_MODE_33) {
+	if (nvt_mode == Touch_Stylus_Gamemode_Enable) {
 		ts->game_in_whitelist_bak = !!nvt_value;
 		NVT_LOG("MIPP stylus update game_in_whitelist_bak: %d ",
 			ts->game_in_whitelist_bak);
@@ -4357,8 +4357,8 @@ static void nvt_set_cur_value(int mode, int *value)
 	}
 
 #ifdef TOUCH_THP_SUPPORT
-	if (nvt_mode == DATA_MODE_19 && ts && nvt_value >= 0) {
-		NVT_LOG("DATA_MODE_19 value %d", nvt_value);
+	if (nvt_mode == Touch_Power_Status && ts && nvt_value >= 0) {
+		NVT_LOG("Touch_Power_Status value %d", nvt_value);
 		if (nvt_value) {
 			flush_workqueue(ts->event_wq);
 			queue_work(ts->event_wq, &ts->resume_work);
@@ -4368,7 +4368,7 @@ static void nvt_set_cur_value(int mode, int *value)
 		return;
 	}
 
-	if (nvt_mode == DATA_MODE_53 && ts && nvt_value >= 0) {
+	if (nvt_mode == THP_LOCK_SCAN_MODE && ts && nvt_value >= 0) {
 		if (ts->ts_selftest_process) {
 			ts->ts_selftest_process_cmd = true;
 			NVT_ERR("ts_selftest_process in true, delay!");
@@ -4391,7 +4391,7 @@ static void nvt_set_cur_value(int mode, int *value)
 				nvt_xm_htc_set_op_mode(2);
 				break;
 			default:
-				NVT_LOG("DATA_MODE_53 not support value %d",
+				NVT_LOG("THP_LOCK_SCAN_MODE not support value %d",
 					nvt_value);
 				break;
 			}
@@ -4400,7 +4400,7 @@ static void nvt_set_cur_value(int mode, int *value)
 		return;
 	}
 
-	if (nvt_mode == DATA_MODE_124 && ts && nvt_value >= 0) {
+	if (nvt_mode == THP_IDLE_BASALINE_UPDATE && ts && nvt_value >= 0) {
 		if (ts->ts_selftest_process) {
 			ts->ts_selftest_process_cmd = true;
 			NVT_ERR("ts_selftest_process in true, delay!");
@@ -4414,7 +4414,7 @@ static void nvt_set_cur_value(int mode, int *value)
 		return;
 	}
 
-	if (nvt_mode == IC_MODE_58 && nvt_value >= 0) {
+	if (nvt_mode == SET_STYLUS_PRESSURE && nvt_value >= 0) {
 		if (bTouchIsAwake) {
 			mutex_lock(&ts->lock);
 			nvt_xm_htc_set_stylus_pressure(nvt_value);
@@ -4423,27 +4423,27 @@ static void nvt_set_cur_value(int mode, int *value)
 		return;
 	}
 
-	if (nvt_mode == DATA_MODE_55 && nvt_value >= 0) {
+	if (nvt_mode == THP_SELF_CAP_SCAN && nvt_value >= 0) {
 		if (ts->enable_touch_raw)
 			nvt_enable_thp_selfcap_scan(nvt_value);
 		return;
 	}
-	if (nvt_mode == DATA_MODE_56 && ts && nvt_value >= 0) {
+	if (nvt_mode == THP_REPORT_POINT_SWITCH && ts && nvt_value >= 0) {
 		nvt_enable_thp_onoff(nvt_value);
 		return;
 	}
-	if (nvt_mode == DATA_MODE_57 && ts && nvt_value >= 0) {
+	if (nvt_mode == THP_HAL_INIT_READY && ts && nvt_value >= 0) {
 		return;
 	}
 
-	if (nvt_mode == DATA_MODE_46 && ts && nvt_value >= 0) {
+	if (nvt_mode == Touch_Idle_THD && ts && nvt_value >= 0) {
 		mutex_lock(&ts->lock);
 		nvt_xm_htc_set_idle_high_base_en(nvt_value);
 		mutex_unlock(&ts->lock);
 		return;
 	}
 
-	if (nvt_mode == DATA_MODE_64 && ts && nvt_value >= 0) {
+	if (nvt_mode == THP_HAL_REPORT_RATE && ts && nvt_value >= 0) {
 		return;
 	}
 #endif
@@ -5624,7 +5624,7 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 		NVT_LOG("READ LOCKDOWN!!!");
 	}
 	// send edge filter params
-	add_common_data_to_buf(0, SET_LONG_VALUE, DATA_MODE_15, 96,
+	add_common_data_to_buf(0, SET_LONG_VALUE, Touch_Grip_Mode, 96,
 			       (int *)edge_filter_params);
 
 	NVT_LOG("end\n");
@@ -5889,7 +5889,7 @@ static void nvt_ts_remove(struct spi_device *client)
 static void suspend_mode_proc(enum suspend_state state)
 {
 	int suspend_status = state;
-	add_common_data_to_buf(0, SET_CUR_VALUE, DATA_MODE_27, 1,
+	add_common_data_to_buf(0, SET_CUR_VALUE, Touch_Suspend, 1,
 			       &suspend_status);
 }
 
@@ -5949,7 +5949,7 @@ static int32_t nvt_ts_suspend(struct device *dev)
 
 #if TOUCH_THP_SUPPORT
 	if (ts->enable_touch_raw)
-		suspend_mode_proc(XIAOMI_DATA_MODE_27);
+		suspend_mode_proc(XIAOMI_TOUCH_SUSPEND);
 #endif
 	ts->gamemode_enable =
 		0; /*suspend, gamemode to false, resume wait thp update*/
@@ -6062,7 +6062,7 @@ static int32_t nvt_ts_resume(struct device *dev)
 		update_pen_status(true);
 		mutex_unlock(&ts->lock);
 	}
-	//add_common_data_to_buf(0, SET_CUR_VALUE, DATA_MODE_143, 1, &ts->pen_static_status);
+	//add_common_data_to_buf(0, SET_CUR_VALUE, THP_ENABLE_WRITE_THP_TIME, 1, &ts->pen_static_status);
 
 	queue_work(ts->event_wq, &ts->power_supply_work);
 
