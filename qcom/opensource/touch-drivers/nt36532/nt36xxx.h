@@ -35,9 +35,11 @@
 #include <linux/earlysuspend.h>
 #endif
 
+#ifndef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
 #define CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
+#endif
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
-#include "../../xiaomi/xiaomi_touch.h"
+#include "../xiaomi/xiaomi_touch.h"
 #include <linux/power_supply.h>
 #endif
 
