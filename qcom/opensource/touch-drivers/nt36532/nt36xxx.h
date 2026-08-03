@@ -350,6 +350,7 @@ struct nvt_ts_data {
 	struct tp_frame thp_frame;
 	bool xm_htc_sw_reset; // software reset is on going
 	bool xm_htc_report_coordinate;
+	int16_t report_rate;
 	uint8_t *eventbuf_debug;
 #else
 #endif /*TOUCH_THP_SUPPORT*/

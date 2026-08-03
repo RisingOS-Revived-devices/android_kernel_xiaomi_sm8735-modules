@@ -41,7 +41,7 @@
 #define XM_HTC_FH_ENABLE "xm_htc_fh_enable" /* frequency hopping enable */
 #define XM_HTC_SCAN_FREQ_NO "xm_htc_scan_freq_no"
 #define XM_HTC_SCAN_FREQ "xm_htc_scan_freq"
-#define XM_HTC_HAND_SCAN_RATE "xm_htc_hand_scan_rate"
+#define XM_HTC_REPORT_RATE "xm_htc_report_rate"
 #define XM_HTC_CALIBRATION "xm_htc_calibration"
 #define XM_HTC_INT_STATE "xm_htc_int_state"
 #define XM_HTC_SINGLE_STEP "xm_htc_single_step"
@@ -86,7 +86,7 @@ static struct proc_dir_entry *XM_HTC_proc_sw_reset_entry;
 static struct proc_dir_entry *XM_HTC_proc_fh_enable_entry;
 static struct proc_dir_entry *XM_HTC_proc_scan_freq_no_entry;
 static struct proc_dir_entry *XM_HTC_proc_scan_freq_entry;
-static struct proc_dir_entry *XM_HTC_proc_hand_scan_rate_entry;
+static struct proc_dir_entry *XM_HTC_proc_report_rate_entry;
 static struct proc_dir_entry *XM_HTC_proc_calibration_entry;
 static struct proc_dir_entry *XM_HTC_proc_int_state_entry;
 static struct proc_dir_entry *XM_HTC_proc_single_step_entry;
@@ -2040,32 +2040,51 @@ static const struct file_operations xm_htc_scan_freq_fops = {
 };
 #endif
 
-int32_t nvt_xm_htc_get_hand_scan_rate(int16_t *hand_scan_rate)
+int32_t nvt_xm_htc_get_report_rate(int16_t *report_rate)
 {
 	int32_t ret = 0;
 
 	NVT_LOG("++\n");
 
-	ret = nvt_get_extend_custom_cmd(0x0A, hand_scan_rate);
+	ret = nvt_get_extend_custom_cmd(0x0A, report_rate);
 	if (ret < 0) {
 		NVT_ERR("nvt_get_extend_custom_cmd fail! ret=%d\n", ret);
 		goto out;
 	}
-	NVT_LOG("get hand_scan_rate: %d\n", *hand_scan_rate);
+	NVT_LOG("get report_rate: %d\n", *report_rate);
 
 out:
 	NVT_LOG("--\n");
 	return ret;
 }
 
-static ssize_t xm_htc_hand_scan_rate_proc_read(struct file *filp,
-					       char __user *buf, size_t count,
-					       loff_t *f_pos)
+int32_t nvt_xm_htc_set_report_rate(int16_t report_rate)
+{
+	int32_t ret = 0;
+
+	NVT_LOG("++\n");
+
+	NVT_LOG("set report_rate: %d\n", report_rate);
+	ret = nvt_set_extend_custom_cmd(0x0A, report_rate);
+	if (ret < 0) {
+		NVT_ERR("nvt_set_extend_custom_cmd fail! ret=%d\n", ret);
+		goto out;
+	}
+	ts->report_rate = report_rate;
+
+out:
+	NVT_LOG("--\n");
+	return ret;
+}
+
+static ssize_t xm_htc_report_rate_proc_read(struct file *filp,
+					    char __user *buf, size_t count,
+					    loff_t *f_pos)
 {
 	static int finished = 0;
 	int32_t cnt = 0;
 	int32_t len = 0;
-	int16_t hand_scan_rate;
+	int16_t report_rate;
 	char tmp_buf[64];
 
 	NVT_LOG("++\n");
@@ -2090,12 +2109,12 @@ static ssize_t xm_htc_hand_scan_rate_proc_read(struct file *filp,
 	nvt_esd_check_enable(false);
 #endif /* #if NVT_TOUCH_ESD_PROTECT */
 
-	nvt_xm_htc_get_hand_scan_rate(&hand_scan_rate);
+	nvt_xm_htc_get_report_rate(&report_rate);
 
 	mutex_unlock(&ts->lock);
 
-	cnt = snprintf(tmp_buf, sizeof(tmp_buf), "hand_scan_rate: %d\n",
-		       hand_scan_rate);
+	cnt = snprintf(tmp_buf, sizeof(tmp_buf), "report_rate: %d\n",
+		       report_rate);
 	if (copy_to_user(buf, tmp_buf, sizeof(tmp_buf))) {
 		NVT_ERR("copy_to_user() error!\n");
 		return -EFAULT;
@@ -2107,14 +2126,76 @@ static ssize_t xm_htc_hand_scan_rate_proc_read(struct file *filp,
 	return len;
 }
 
+static ssize_t xm_htc_report_rate_proc_write(struct file *filp,
+					     const char __user *buf,
+					     size_t count, loff_t *f_pos)
+{
+	int32_t ret;
+	int32_t tmp;
+	int16_t report_rate;
+	char *tmp_buf = NULL;
+
+	NVT_LOG("++\n");
+
+	if (count == 0 || count > 5) {
+		NVT_ERR("Invalid value! count = %zu\n", count);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	tmp_buf = kzalloc(count + 1, GFP_KERNEL);
+	if (!tmp_buf) {
+		NVT_ERR("Allocate tmp_buf fail!\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	if (copy_from_user(tmp_buf, buf, count)) {
+		NVT_ERR("copy_from_user() error!\n");
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = sscanf(tmp_buf, "%d", &tmp);
+	if (ret != 1) {
+		NVT_ERR("Invalid value! ret = %d\n", ret);
+		ret = -EINVAL;
+		goto out;
+	}
+	report_rate = (int16_t)tmp;
+	NVT_LOG("report_rate = %d\n", report_rate);
+
+	if (mutex_lock_interruptible(&ts->lock)) {
+		ret = -ERESTARTSYS;
+		goto out;
+	}
+
+#if NVT_TOUCH_ESD_PROTECT
+	nvt_esd_check_enable(false);
+#endif /* #if NVT_TOUCH_ESD_PROTECT */
+
+	nvt_xm_htc_set_report_rate(report_rate);
+
+	mutex_unlock(&ts->lock);
+
+	ret = count;
+out:
+	if (tmp_buf)
+		kfree(tmp_buf);
+	NVT_LOG("--\n");
+	return ret;
+}
+
 #ifdef HAVE_PROC_OPS
-static const struct proc_ops xm_htc_hand_scan_rate_fops = {
-	.proc_read = xm_htc_hand_scan_rate_proc_read,
+static const struct proc_ops xm_htc_report_rate_fops = {
+	.proc_read = xm_htc_report_rate_proc_read,
+	.proc_write = xm_htc_report_rate_proc_write,
 };
 #else
-static const struct file_operations xm_htc_hand_scan_rate_fops = {
+static const struct file_operations xm_htc_report_rate_fops = {
 	.owner = THIS_MODULE,
-	.read = xm_htc_hand_scan_rate_proc_read,
+	.read = xm_htc_report_rate_proc_read,
+	.write = xm_htc_report_rate_proc_write,
 };
 #endif
 
@@ -4284,13 +4365,13 @@ int32_t nvt_extra_proc_init(void)
 		NVT_LOG("create proc/%s Succeeded!\n", XM_HTC_SCAN_FREQ);
 	}
 
-	XM_HTC_proc_hand_scan_rate_entry = proc_create(
-		XM_HTC_HAND_SCAN_RATE, 0666, NULL, &xm_htc_hand_scan_rate_fops);
-	if (XM_HTC_proc_hand_scan_rate_entry == NULL) {
-		NVT_ERR("create proc/%s Failed!\n", XM_HTC_HAND_SCAN_RATE);
+	XM_HTC_proc_report_rate_entry = proc_create(
+		XM_HTC_REPORT_RATE, 0666, NULL, &xm_htc_report_rate_fops);
+	if (XM_HTC_proc_report_rate_entry == NULL) {
+		NVT_ERR("create proc/%s Failed!\n", XM_HTC_REPORT_RATE);
 		return -ENOMEM;
 	} else {
-		NVT_LOG("create proc/%s Succeeded!\n", XM_HTC_HAND_SCAN_RATE);
+		NVT_LOG("create proc/%s Succeeded!\n", XM_HTC_REPORT_RATE);
 	}
 
 
@@ -4519,10 +4600,10 @@ void nvt_extra_proc_deinit(void)
 		NVT_LOG("Removed /proc/%s\n", XM_HTC_SCAN_FREQ);
 	}
 
-	if (XM_HTC_proc_hand_scan_rate_entry != NULL) {
-		remove_proc_entry(XM_HTC_HAND_SCAN_RATE, NULL);
-		XM_HTC_proc_hand_scan_rate_entry = NULL;
-		NVT_LOG("Removed /proc/%s\n", XM_HTC_HAND_SCAN_RATE);
+	if (XM_HTC_proc_report_rate_entry != NULL) {
+		remove_proc_entry(XM_HTC_REPORT_RATE, NULL);
+		XM_HTC_proc_report_rate_entry = NULL;
+		NVT_LOG("Removed /proc/%s\n", XM_HTC_REPORT_RATE);
 	}
 
 

@@ -99,6 +99,7 @@ extern void Boot_Update_Firmware(struct work_struct *work);
 
 extern int32_t nvt_xm_htc_set_idle_baseline_update(void);
 extern int32_t nvt_xm_htc_set_op_mode(int16_t op_mode);
+extern int32_t nvt_xm_htc_set_report_rate(int16_t report_rate);
 
 #if defined(_MSM_DRM_NOTIFY_H_)
 static int nvt_drm_notifier_callback(struct notifier_block *self,
@@ -3283,6 +3284,9 @@ static void nvt_set_cur_value(int mode, int *value)
 	}
 
 	if (nvt_mode == THP_HAL_REPORT_RATE && ts && nvt_value >= 0) {
+		mutex_lock(&ts->lock);
+		nvt_xm_htc_set_report_rate((int16_t)nvt_value);
+		mutex_unlock(&ts->lock);
 		return;
 	}
 #endif
@@ -4140,6 +4144,7 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 #if TOUCH_THP_SUPPORT
 	ts->xm_htc_report_coordinate = false;
 	ts->enable_touch_raw = true;
+	ts->report_rate = 120;
 #endif
 	//thp end 6.8
 
