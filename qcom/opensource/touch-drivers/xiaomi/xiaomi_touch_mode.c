@@ -72,7 +72,7 @@ void driver_update_touch_mode(s8 touch_id, int _touch_mode[Touch_Mode_NUM],
 	}
 
 	for (i = 0; i < Touch_Mode_NUM; i++) {
-		if (update_mode_mask & (1 << i)) {
+		if (update_mode_mask & (1L << i)) {
 			touch_mode[touch_id][i][SET_CUR_VALUE] = _touch_mode[i];
 			if (i > Touch_Panel_Orientation) {
 				touch_mode[touch_id][i][GET_CUR_VALUE] =
@@ -132,7 +132,8 @@ u8 xiaomi_get_gesture_type(s8 touch_id)
 		tmp_value |= GESTURE_STYLUS_SINGLETAP_EVENT;
 #endif
 
-	if (touch_mode[touch_id][Touch_Fod_Enable][GET_CUR_VALUE]) {
+	if (touch_mode[touch_id][Touch_Fod_Enable][GET_CUR_VALUE] ||
+	    touch_mode[touch_id][Touch_Fod_Longpress_Gesture][GET_CUR_VALUE]) {
 		tmp_value |= GESTURE_LONGPRESS_EVENT;
 		if (touch_mode[touch_id][Touch_FodIcon_Enable][GET_CUR_VALUE] &&
 		    !touch_mode[touch_id][Touch_Nonui_Mode][GET_CUR_VALUE])
@@ -902,6 +903,12 @@ static void xiaomi_touch_set_mode_value(common_data_t *common_data)
 	case Touch_Fod_Enable:
 		touch_mode[touch_id][mode][GET_CUR_VALUE] = val;
 		LOG_INFO("Touch_Fod_Enable value [%d]", val);
+		queue_work(xiaomi_touch_data->event_wq,
+			   &switch_mode_work[touch_id]);
+		break;
+	case Touch_Fod_Longpress_Gesture:
+		touch_mode[touch_id][mode][GET_CUR_VALUE] = val;
+		LOG_INFO("Touch_Fod_Longpress_Gesture value [%d]", val);
 		queue_work(xiaomi_touch_data->event_wq,
 			   &switch_mode_work[touch_id]);
 		break;

@@ -192,6 +192,26 @@ CREATE_ATTR(
 	fod_press_status,
 	{ return snprintf(buf, PAGE_SIZE, "%d\n", fod_press_status_value); },
 	{ return count; });
+
+CREATE_ATTR(
+	fod_longpress_gesture_enabled,
+	{
+		return snprintf(buf, PAGE_SIZE, "%d\n",
+				driver_get_touch_mode(
+					TOUCH_ID, Touch_Fod_Longpress_Gesture));
+	},
+	{
+		unsigned int input;
+		int mode_arr[Touch_Mode_NUM] = { 0 };
+
+		if (sscanf(buf, "%d", &input) < 0 || input > 1)
+			return -EINVAL;
+
+		mode_arr[Touch_Fod_Longpress_Gesture] = input;
+		driver_update_touch_mode(TOUCH_ID, mode_arr,
+					 1L << Touch_Fod_Longpress_Gesture);
+		return count;
+	});
 #endif
 
 CREATE_ATTR(
@@ -716,6 +736,7 @@ CREATE_ATTR(
 static struct attribute *touch_attr_group[] = {
 #ifdef TOUCH_FOD_SUPPORT
 	&dev_attr_fod_press_status.attr,
+	&dev_attr_fod_longpress_gesture_enabled.attr,
 	&dev_attr_fod_test.attr,
 #endif
 #ifdef TOUCH_STYLUS_SUPPORT
